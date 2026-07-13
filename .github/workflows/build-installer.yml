@@ -1,0 +1,201 @@
+name: Build SolarCRM Windows Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'artifacts/**'
+      - 'lib/**'
+      - 'windows-deployment/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+  release:
+    types: [created]
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+
+jobs:
+  build-installer:
+    name: Build SolarCRM_Setup.exe
+    runs-on: windows-2022
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node.js + pnpm ──────────────────────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      # ── Install dependencies ────────────────────────────────────────────────
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Run codegen ─────────────────────────────────────────────────────────
+      - name: Generate API client
+        run: pnpm --filter @workspace/api-spec run codegen
+
+      # ── Build frontend ──────────────────────────────────────────────────────
+      - name: Build frontend
+        run: pnpm --filter @workspace/solar-crm run build
+        env:
+          NODE_ENV: production
+
+      # ── Build backend ───────────────────────────────────────────────────────
+      - name: Build backend
+        run: pnpm --filter @workspace/api-server run build
+        env:
+          NODE_ENV: production
+
+      # ── Create bundle directory ──────────────────────────────────────────────
+      - name: Create installer bundle
+        shell: pwsh
+        run: |
+          $bundle = "windows-deployment\installer\bundle"
+          
+          # App: backend + frontend
+          New-Item -ItemType Directory -Force "$bundle\app\dist\public"
+          Copy-Item -Recurse -Force "artifacts\api-server\dist\*" "$bundle\app\dist\"
+          Copy-Item -Recurse -Force "artifacts\solar-crm\dist\public\*" "$bundle\app\dist\public\"
+          
+          # Scripts
+          New-Item -ItemType Directory -Force "$bundle\scripts"
+          Copy-Item "windows-deployment\scripts\*.ps1" "$bundle\scripts\"
+          
+          # Config templates
+          New-Item -ItemType Directory -Force "$bundle\config"
+          Copy-Item "windows-deployment\config\*" "$bundle\config\"
+          
+          # Assets directory
+          New-Item -ItemType Directory -Force "$bundle\assets"
+          
+          # License
+          Set-Content "$bundle\assets\license.txt" @"
+          SolarCRM Software License
+          
+          This software is provided for internal business use.
+          All data remains the property of the installing organization.
+          "@
+          
+          echo "Bundle contents:"
+          Get-ChildItem -Recurse $bundle | Select-Object FullName
+
+      # ── Download portable Node.js ────────────────────────────────────────────
+      - name: Download portable Node.js
+        shell: pwsh
+        run: |
+          $nodeUrl = "https://nodejs.org/dist/v20.14.0/node-v20.14.0-win-x64.zip"
+          $nodeZip = "$env:TEMP\node-portable.zip"
+          $bundle = "windows-deployment\installer\bundle"
+          
+          Write-Host "Downloading Node.js portable..."
+          Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeZip
+          
+          Write-Host "Extracting..."
+          Expand-Archive -Path $nodeZip -DestinationPath "$env:TEMP\node-extract" -Force
+          
+          New-Item -ItemType Directory -Force "$bundle\node"
+          Copy-Item -Recurse -Force "$env:TEMP\node-extract\node-v20.14.0-win-x64\*" "$bundle\node\"
+          Write-Host "Node.js bundled: $((Get-ChildItem "$bundle\node").Count) files"
+
+      # ── Download NSSM ────────────────────────────────────────────────────────
+      - name: Download NSSM
+        shell: pwsh
+        run: |
+          $nssmUrl = "https://nssm.cc/release/nssm-2.24.zip"
+          $nssmZip = "$env:TEMP\nssm.zip"
+          $bundle = "windows-deployment\installer\bundle"
+          
+          Write-Host "Downloading NSSM..."
+          Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip
+          Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\nssm-extract" -Force
+          
+          New-Item -ItemType Directory -Force "$bundle\tools"
+          Copy-Item "$env:TEMP\nssm-extract\nssm-2.24\win64\nssm.exe" "$bundle\tools\"
+          Write-Host "NSSM bundled"
+
+      # ── Install NSIS ─────────────────────────────────────────────────────────
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          $nsisUrl = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10-setup.exe"
+          $nsisInstaller = "$env:TEMP\nsis-setup.exe"
+          
+          Write-Host "Downloading NSIS..."
+          Invoke-WebRequest -Uri $nsisUrl -OutFile $nsisInstaller
+          
+          Write-Host "Installing NSIS silently..."
+          Start-Process -FilePath $nsisInstaller -ArgumentList "/S" -Wait
+          
+          # Add to PATH for this job
+          $nsisPath = "C:\Program Files (x86)\NSIS"
+          echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Append
+          
+          Write-Host "NSIS installed"
+
+      # ── Install NSIS inetc plugin ───────────────────────────────────────────
+      - name: Install NSIS inetc plugin
+        shell: pwsh
+        run: |
+          $pluginUrl = "https://nsis.sourceforge.io/mediawiki/images/c/c9/Inetc.zip"
+          $pluginZip = "$env:TEMP\inetc.zip"
+          $nsisPluginDir = "C:\Program Files (x86)\NSIS\Plugins\x86-unicode"
+          
+          Invoke-WebRequest -Uri $pluginUrl -OutFile $pluginZip -ErrorAction SilentlyContinue
+          if (Test-Path $pluginZip) {
+            Expand-Archive -Path $pluginZip -DestinationPath "$env:TEMP\inetc" -Force
+            New-Item -ItemType Directory -Force $nsisPluginDir
+            Get-ChildItem "$env:TEMP\inetc" -Filter "*.dll" -Recurse | Copy-Item -Destination $nsisPluginDir
+            Write-Host "inetc plugin installed"
+          } else {
+            Write-Host "::warning::inetc plugin download failed — online download in installer may not work"
+          }
+
+      # ── Compile NSIS installer ───────────────────────────────────────────────
+      - name: Compile NSIS installer
+        shell: cmd
+        working-directory: windows-deployment\installer
+        run: makensis /V3 setup.nsi
+
+      # ── Verify output ────────────────────────────────────────────────────────
+      - name: Verify installer
+        shell: pwsh
+        run: |
+          $installer = "windows-deployment\installer\SolarCRM_Setup.exe"
+          if (Test-Path $installer) {
+            $size = [math]::Round((Get-Item $installer).Length / 1MB, 1)
+            Write-Host "SUCCESS: SolarCRM_Setup.exe ($size MB)"
+          } else {
+            Write-Error "FAILED: SolarCRM_Setup.exe was not created"
+            exit 1
+          }
+
+      # ── Upload installer artifact ────────────────────────────────────────────
+      - name: Upload SolarCRM_Setup.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolarCRM_Setup-${{ github.sha }}
+          path: windows-deployment/installer/SolarCRM_Setup.exe
+          retention-days: 90
+          if-no-files-found: error
+
+      # ── Upload to release (on tagged release) ────────────────────────────────
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows-deployment/installer/SolarCRM_Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

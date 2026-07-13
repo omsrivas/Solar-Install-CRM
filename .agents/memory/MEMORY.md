@@ -1,0 +1,2 @@
+- [Solar CRM Architecture](solar-crm-arch.md) — JWT auth, API client pattern, sidebar layout, route guards
+- [Solar CRM Seed Script](solar-crm-seed.md) — how to run seed, what gets seeded, default logins

@@ -1,0 +1,4 @@
+SolarCRM Software License
+
+This software is provided for internal business use only.
+All data remains the property of the installing organization.
