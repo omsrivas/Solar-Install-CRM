@@ -18,6 +18,7 @@ env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9'
   NODE_PORTABLE_VERSION: 'v20.14.0'
+  GO_VERSION: '1.21'
 
 jobs:
   build-installer:
@@ -25,9 +26,16 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      # ── Checkout ─────────────────────────────────────────────────────────────
+      # ── Checkout ──────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # ── Go ────────────────────────────────────────────────────────────────────
+      - name: Setup Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
 
       # ── pnpm + Node.js ────────────────────────────────────────────────────────
       - name: Setup pnpm
@@ -54,9 +62,7 @@ jobs:
         run: pnpm --filter @workspace/solar-crm run build
         env:
           NODE_ENV: production
-          # PORT is required by vite.config.ts even during build; 1 is a safe dummy
           PORT: 1
-          # BASE_PATH=/ because the backend serves the frontend from its root
           BASE_PATH: /
 
       # ── Build Express backend ─────────────────────────────────────────────────
@@ -65,78 +71,65 @@ jobs:
         env:
           NODE_ENV: production
 
-      # ── Assemble installer bundle ─────────────────────────────────────────────
+      # ── Assemble bundle for the Go installer ──────────────────────────────────
       - name: Assemble installer bundle
         shell: pwsh
         run: |
-          $bundle = "windows-deployment\installer\bundle"
-          $installerSrc = "windows-deployment\installer"
+          $bundle = "windows-deployment\go-installer\bundle"
+          $src    = "windows-deployment\installer"
 
-          # Clear and recreate bundle layout
-          if (Test-Path $bundle) { Remove-Item $bundle -Recurse -Force }
+          # Recreate bundle directory (keep .gitkeep)
+          if (Test-Path "$bundle\app")     { Remove-Item "$bundle\app"     -Recurse -Force }
+          if (Test-Path "$bundle\node")    { Remove-Item "$bundle\node"    -Recurse -Force }
+          if (Test-Path "$bundle\tools")   { Remove-Item "$bundle\tools"   -Recurse -Force }
+          if (Test-Path "$bundle\scripts") { Remove-Item "$bundle\scripts" -Recurse -Force }
+          if (Test-Path "$bundle\config")  { Remove-Item "$bundle\config"  -Recurse -Force }
+          if (Test-Path "$bundle\assets")  { Remove-Item "$bundle\assets"  -Recurse -Force }
+          if (Test-Path "$bundle\sql")     { Remove-Item "$bundle\sql"     -Recurse -Force }
 
-          # App: backend build + built React frontend
+          # App: backend build output + React frontend
           New-Item -ItemType Directory -Force "$bundle\app\dist\public" | Out-Null
-          Copy-Item -Recurse -Force "artifacts\api-server\dist\*"        "$bundle\app\dist\"
-          Copy-Item -Recurse -Force "artifacts\solar-crm\dist\public\*"  "$bundle\app\dist\public\"
-          Write-Host "App files: OK"
+          Copy-Item -Recurse -Force "artifacts\api-server\dist\*"       "$bundle\app\dist\"
+          Copy-Item -Recurse -Force "artifacts\solar-crm\dist\public\*" "$bundle\app\dist\public\"
+          Write-Host "  App files : OK"
 
           # PowerShell management scripts
           New-Item -ItemType Directory -Force "$bundle\scripts" | Out-Null
-          Copy-Item "$installerSrc\..\scripts\*.ps1" "$bundle\scripts\"
-          Write-Host "Scripts: OK"
+          Copy-Item "windows-deployment\scripts\*.ps1" "$bundle\scripts\"
+          Write-Host "  Scripts   : OK"
 
           # Config templates
           New-Item -ItemType Directory -Force "$bundle\config" | Out-Null
-          Copy-Item "$installerSrc\..\config\*" "$bundle\config\"
-          Write-Host "Config templates: OK"
+          Copy-Item "windows-deployment\config\*" "$bundle\config\"
+          Write-Host "  Config    : OK"
 
-          # Installer assets (icon, BMPs, license) — committed source
+          # Assets (icon, license) — committed sources in installer/assets/
           New-Item -ItemType Directory -Force "$bundle\assets" | Out-Null
-          Copy-Item "$installerSrc\assets\*" "$bundle\assets\"
-          Write-Host "Assets: OK"
+          Copy-Item "$src\assets\*" "$bundle\assets\"
+          Write-Host "  Assets    : OK"
 
-          # SQL schema migrations — committed source
+          # SQL schema — committed source in installer/sql/
           New-Item -ItemType Directory -Force "$bundle\sql" | Out-Null
-          Copy-Item "$installerSrc\sql\*" "$bundle\sql\"
-          Write-Host "SQL migrations: OK"
+          Copy-Item "$src\sql\*" "$bundle\sql\"
+          Write-Host "  SQL       : OK"
 
-          # Empty runtime directories
+          # Empty runtime directories (logs, backups) — created at runtime by installer,
+          # but we add a placeholder so go:embed picks them up
+          New-Item -ItemType Directory -Force "$bundle\logs"    | Out-Null
           New-Item -ItemType Directory -Force "$bundle\backups" | Out-Null
-          New-Item -ItemType Directory -Force "$bundle\logs" | Out-Null
+          "" | Out-File "$bundle\logs\.gitkeep"    -Encoding ascii
+          "" | Out-File "$bundle\backups\.gitkeep" -Encoding ascii
 
-          # Verify critical files exist
-          $required = @(
-            "$bundle\app\dist\index.mjs",
-            "$bundle\app\dist\seed.mjs",
-            "$bundle\app\dist\public\index.html",
-            "$bundle\assets\solar-crm.ico",
-            "$bundle\assets\header.bmp",
-            "$bundle\assets\welcome.bmp",
-            "$bundle\assets\license.txt",
-            "$bundle\sql\0001_schema.sql",
-            "$bundle\scripts\Install-Service.ps1",
-            "$bundle\scripts\Setup-Database.ps1",
-            "$bundle\config\solar-crm.env.template"
-          )
-          $missing = $false
-          foreach ($f in $required) {
-            if (-not (Test-Path $f)) {
-              Write-Host "::error::MISSING: $f"
-              $missing = $true
-            }
-          }
-          if ($missing) { exit 1 }
-          Write-Host "Bundle pre-check: PASSED"
+          Write-Host "`n  Bundle assembled OK"
 
-      # ── Download portable Node.js (bundled into the installer exe) ────────────
+      # ── Download portable Node.js ─────────────────────────────────────────────
       - name: Download portable Node.js ${{ env.NODE_PORTABLE_VERSION }}
         shell: pwsh
         run: |
           $ver    = "${{ env.NODE_PORTABLE_VERSION }}"
           $url    = "https://nodejs.org/dist/$ver/node-$ver-win-x64.zip"
           $zip    = "$env:TEMP\node-portable.zip"
-          $bundle = "windows-deployment\installer\bundle"
+          $bundle = "windows-deployment\go-installer\bundle"
 
           Write-Host "Downloading Node.js $ver portable..."
           Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
@@ -146,7 +139,7 @@ jobs:
 
           New-Item -ItemType Directory -Force "$bundle\node" | Out-Null
           Copy-Item -Recurse -Force "$env:TEMP\node-extract\node-$ver-win-x64\*" "$bundle\node\"
-          Write-Host "Node.js bundled: $((Get-ChildItem "$bundle\node").Count) items in node/"
+          Write-Host "Node.js bundled: $((Get-ChildItem "$bundle\node").Count) items"
 
       # ── Download NSSM (Windows service manager) ───────────────────────────────
       - name: Download NSSM
@@ -154,7 +147,7 @@ jobs:
         run: |
           $url    = "https://nssm.cc/release/nssm-2.24.zip"
           $zip    = "$env:TEMP\nssm.zip"
-          $bundle = "windows-deployment\installer\bundle"
+          $bundle = "windows-deployment\go-installer\bundle"
 
           Write-Host "Downloading NSSM..."
           Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
@@ -164,34 +157,12 @@ jobs:
           Copy-Item "$env:TEMP\nssm-extract\nssm-2.24\win64\nssm.exe" "$bundle\tools\"
           Write-Host "NSSM bundled: $(Test-Path "$bundle\tools\nssm.exe")"
 
-      # ── Install NSIS ──────────────────────────────────────────────────────────
-      - name: Install NSIS 3.10
+      # ── Verify bundle is complete before compiling ────────────────────────────
+      - name: Verify bundle
         shell: pwsh
         run: |
-          $url  = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10-setup.exe"
-          $inst = "$env:TEMP\nsis-setup.exe"
-
-          Write-Host "Downloading NSIS..."
-          Invoke-WebRequest -Uri $url -OutFile $inst -UseBasicParsing
-
-          Write-Host "Installing NSIS silently..."
-          Start-Process -FilePath $inst -ArgumentList "/S" -Wait
-
-          $nsisDir = "C:\Program Files (x86)\NSIS"
-          if (-not (Test-Path "$nsisDir\makensis.exe")) {
-            Write-Error "makensis.exe not found after install"
-            exit 1
-          }
-          # Add NSIS to PATH for subsequent steps
-          "$nsisDir" | Out-File -FilePath $env:GITHUB_PATH -Append
-          Write-Host "NSIS installed: $(& "$nsisDir\makensis.exe" /VERSION)"
-
-      # ── Final bundle verification before compiling ─────────────────────────────
-      - name: Verify complete bundle
-        shell: pwsh
-        run: |
-          $bundle = "windows-deployment\installer\bundle"
-          $checks = @(
+          $bundle = "windows-deployment\go-installer\bundle"
+          $required = @(
             "$bundle\app\dist\index.mjs",
             "$bundle\app\dist\seed.mjs",
             "$bundle\app\dist\public\index.html",
@@ -203,50 +174,45 @@ jobs:
             "$bundle\scripts\Backup-Database.ps1",
             "$bundle\scripts\Uninstall.ps1",
             "$bundle\assets\solar-crm.ico",
-            "$bundle\assets\header.bmp",
-            "$bundle\assets\welcome.bmp",
             "$bundle\assets\license.txt",
             "$bundle\sql\0001_schema.sql",
             "$bundle\config\solar-crm.env.template"
           )
           $fail = $false
-          foreach ($f in $checks) {
-            $exists = Test-Path $f
-            $icon = if ($exists) { "[OK]" } else { "[MISSING]" }
-            Write-Host "$icon $f"
-            if (-not $exists) { $fail = $true }
+          foreach ($f in $required) {
+            if (Test-Path $f) {
+              Write-Host "  [OK]     $f"
+            } else {
+              Write-Host "  [MISSING] $f"
+              $fail = $true
+            }
           }
           if ($fail) {
-            Write-Error "Bundle verification FAILED — see missing files above"
+            Write-Error "Bundle incomplete — see MISSING entries above"
             exit 1
           }
-          Write-Host "`nBundle verification PASSED — all required files present"
+          Write-Host "`n  Bundle verification PASSED"
 
-      # ── Compile NSIS installer ────────────────────────────────────────────────
-      - name: Compile NSIS installer
-        shell: cmd
-        working-directory: windows-deployment\installer
-        run: makensis /V3 setup.nsi
-
-      # ── Verify the output exe was created ─────────────────────────────────────
-      - name: Verify installer output
+      # ── Compile Go installer (no external tool needed) ────────────────────────
+      - name: Compile Go installer
         shell: pwsh
+        working-directory: windows-deployment\go-installer
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
         run: |
-          $exe = "windows-deployment\installer\SolarCRM_Setup.exe"
-          if (Test-Path $exe) {
-            $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
-            Write-Host "SUCCESS: SolarCRM_Setup.exe created ($mb MB)"
-          } else {
-            Write-Error "FAILED: SolarCRM_Setup.exe was not created by makensis"
-            exit 1
-          }
+          Write-Host "Building SolarCRM_Setup.exe with Go..."
+          go build -ldflags="-s -w" -o SolarCRM_Setup.exe .
+          $mb = [math]::Round((Get-Item SolarCRM_Setup.exe).Length / 1MB, 1)
+          Write-Host "SUCCESS: SolarCRM_Setup.exe created ($mb MB)"
 
       # ── Upload installer as workflow artifact ─────────────────────────────────
       - name: Upload SolarCRM_Setup.exe
         uses: actions/upload-artifact@v4
         with:
           name: SolarCRM_Setup-${{ github.sha }}
-          path: windows-deployment/installer/SolarCRM_Setup.exe
+          path: windows-deployment/go-installer/SolarCRM_Setup.exe
           retention-days: 90
           if-no-files-found: error
 
@@ -255,6 +221,6 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: windows-deployment/installer/SolarCRM_Setup.exe
+          files: windows-deployment/go-installer/SolarCRM_Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
