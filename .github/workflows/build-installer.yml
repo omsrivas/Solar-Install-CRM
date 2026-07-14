@@ -7,15 +7,17 @@ on:
       - 'artifacts/**'
       - 'lib/**'
       - 'windows-deployment/**'
+      - '.github/workflows/build-installer.yml'
   pull_request:
     branches: [main]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:   # Allow manual trigger from GitHub Actions tab
   release:
     types: [created]
 
 env:
   NODE_VERSION: '20'
   PNPM_VERSION: '9'
+  NODE_PORTABLE_VERSION: 'v20.14.0'
 
 jobs:
   build-installer:
@@ -23,11 +25,11 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      # ── Checkout ────────────────────────────────────────────────────────────
+      # ── Checkout ─────────────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── Node.js + pnpm ──────────────────────────────────────────────────────
+      # ── pnpm + Node.js ────────────────────────────────────────────────────────
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -39,150 +41,207 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
 
-      # ── Install dependencies ────────────────────────────────────────────────
+      # ── Install workspace dependencies ────────────────────────────────────────
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # ── Run codegen ─────────────────────────────────────────────────────────
-      - name: Generate API client
+      # ── Generate API client from OpenAPI spec ─────────────────────────────────
+      - name: Generate API client (orval codegen)
         run: pnpm --filter @workspace/api-spec run codegen
 
-      # ── Build frontend ──────────────────────────────────────────────────────
+      # ── Build React frontend ──────────────────────────────────────────────────
       - name: Build frontend
         run: pnpm --filter @workspace/solar-crm run build
         env:
           NODE_ENV: production
+          # PORT is required by vite.config.ts even during build; 1 is a safe dummy
+          PORT: 1
+          # BASE_PATH=/ because the backend serves the frontend from its root
+          BASE_PATH: /
 
-      # ── Build backend ───────────────────────────────────────────────────────
+      # ── Build Express backend ─────────────────────────────────────────────────
       - name: Build backend
         run: pnpm --filter @workspace/api-server run build
         env:
           NODE_ENV: production
 
-      # ── Create bundle directory ──────────────────────────────────────────────
-      - name: Create installer bundle
+      # ── Assemble installer bundle ─────────────────────────────────────────────
+      - name: Assemble installer bundle
         shell: pwsh
         run: |
           $bundle = "windows-deployment\installer\bundle"
-          
-          # App: backend + frontend
-          New-Item -ItemType Directory -Force "$bundle\app\dist\public"
-          Copy-Item -Recurse -Force "artifacts\api-server\dist\*" "$bundle\app\dist\"
-          Copy-Item -Recurse -Force "artifacts\solar-crm\dist\public\*" "$bundle\app\dist\public\"
-          
-          # Scripts
-          New-Item -ItemType Directory -Force "$bundle\scripts"
-          Copy-Item "windows-deployment\scripts\*.ps1" "$bundle\scripts\"
-          
+          $installerSrc = "windows-deployment\installer"
+
+          # Clear and recreate bundle layout
+          if (Test-Path $bundle) { Remove-Item $bundle -Recurse -Force }
+
+          # App: backend build + built React frontend
+          New-Item -ItemType Directory -Force "$bundle\app\dist\public" | Out-Null
+          Copy-Item -Recurse -Force "artifacts\api-server\dist\*"        "$bundle\app\dist\"
+          Copy-Item -Recurse -Force "artifacts\solar-crm\dist\public\*"  "$bundle\app\dist\public\"
+          Write-Host "App files: OK"
+
+          # PowerShell management scripts
+          New-Item -ItemType Directory -Force "$bundle\scripts" | Out-Null
+          Copy-Item "$installerSrc\..\scripts\*.ps1" "$bundle\scripts\"
+          Write-Host "Scripts: OK"
+
           # Config templates
-          New-Item -ItemType Directory -Force "$bundle\config"
-          Copy-Item "windows-deployment\config\*" "$bundle\config\"
-          
-          # Assets directory
-          New-Item -ItemType Directory -Force "$bundle\assets"
-          
-          # License
-          Set-Content "$bundle\assets\license.txt" @"
-          SolarCRM Software License
-          
-          This software is provided for internal business use.
-          All data remains the property of the installing organization.
-          "@
-          
-          echo "Bundle contents:"
-          Get-ChildItem -Recurse $bundle | Select-Object FullName
+          New-Item -ItemType Directory -Force "$bundle\config" | Out-Null
+          Copy-Item "$installerSrc\..\config\*" "$bundle\config\"
+          Write-Host "Config templates: OK"
 
-      # ── Download portable Node.js ────────────────────────────────────────────
-      - name: Download portable Node.js
+          # Installer assets (icon, BMPs, license) — committed source
+          New-Item -ItemType Directory -Force "$bundle\assets" | Out-Null
+          Copy-Item "$installerSrc\assets\*" "$bundle\assets\"
+          Write-Host "Assets: OK"
+
+          # SQL schema migrations — committed source
+          New-Item -ItemType Directory -Force "$bundle\sql" | Out-Null
+          Copy-Item "$installerSrc\sql\*" "$bundle\sql\"
+          Write-Host "SQL migrations: OK"
+
+          # Empty runtime directories
+          New-Item -ItemType Directory -Force "$bundle\backups" | Out-Null
+          New-Item -ItemType Directory -Force "$bundle\logs" | Out-Null
+
+          # Verify critical files exist
+          $required = @(
+            "$bundle\app\dist\index.mjs",
+            "$bundle\app\dist\seed.mjs",
+            "$bundle\app\dist\public\index.html",
+            "$bundle\assets\solar-crm.ico",
+            "$bundle\assets\header.bmp",
+            "$bundle\assets\welcome.bmp",
+            "$bundle\assets\license.txt",
+            "$bundle\sql\0001_schema.sql",
+            "$bundle\scripts\Install-Service.ps1",
+            "$bundle\scripts\Setup-Database.ps1",
+            "$bundle\config\solar-crm.env.template"
+          )
+          $missing = $false
+          foreach ($f in $required) {
+            if (-not (Test-Path $f)) {
+              Write-Host "::error::MISSING: $f"
+              $missing = $true
+            }
+          }
+          if ($missing) { exit 1 }
+          Write-Host "Bundle pre-check: PASSED"
+
+      # ── Download portable Node.js (bundled into the installer exe) ────────────
+      - name: Download portable Node.js ${{ env.NODE_PORTABLE_VERSION }}
         shell: pwsh
         run: |
-          $nodeUrl = "https://nodejs.org/dist/v20.14.0/node-v20.14.0-win-x64.zip"
-          $nodeZip = "$env:TEMP\node-portable.zip"
+          $ver    = "${{ env.NODE_PORTABLE_VERSION }}"
+          $url    = "https://nodejs.org/dist/$ver/node-$ver-win-x64.zip"
+          $zip    = "$env:TEMP\node-portable.zip"
           $bundle = "windows-deployment\installer\bundle"
-          
-          Write-Host "Downloading Node.js portable..."
-          Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeZip
-          
-          Write-Host "Extracting..."
-          Expand-Archive -Path $nodeZip -DestinationPath "$env:TEMP\node-extract" -Force
-          
-          New-Item -ItemType Directory -Force "$bundle\node"
-          Copy-Item -Recurse -Force "$env:TEMP\node-extract\node-v20.14.0-win-x64\*" "$bundle\node\"
-          Write-Host "Node.js bundled: $((Get-ChildItem "$bundle\node").Count) files"
 
-      # ── Download NSSM ────────────────────────────────────────────────────────
+          Write-Host "Downloading Node.js $ver portable..."
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+
+          Write-Host "Extracting..."
+          Expand-Archive -Path $zip -DestinationPath "$env:TEMP\node-extract" -Force
+
+          New-Item -ItemType Directory -Force "$bundle\node" | Out-Null
+          Copy-Item -Recurse -Force "$env:TEMP\node-extract\node-$ver-win-x64\*" "$bundle\node\"
+          Write-Host "Node.js bundled: $((Get-ChildItem "$bundle\node").Count) items in node/"
+
+      # ── Download NSSM (Windows service manager) ───────────────────────────────
       - name: Download NSSM
         shell: pwsh
         run: |
-          $nssmUrl = "https://nssm.cc/release/nssm-2.24.zip"
-          $nssmZip = "$env:TEMP\nssm.zip"
+          $url    = "https://nssm.cc/release/nssm-2.24.zip"
+          $zip    = "$env:TEMP\nssm.zip"
           $bundle = "windows-deployment\installer\bundle"
-          
+
           Write-Host "Downloading NSSM..."
-          Invoke-WebRequest -Uri $nssmUrl -OutFile $nssmZip
-          Expand-Archive -Path $nssmZip -DestinationPath "$env:TEMP\nssm-extract" -Force
-          
-          New-Item -ItemType Directory -Force "$bundle\tools"
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          Expand-Archive -Path $zip -DestinationPath "$env:TEMP\nssm-extract" -Force
+
+          New-Item -ItemType Directory -Force "$bundle\tools" | Out-Null
           Copy-Item "$env:TEMP\nssm-extract\nssm-2.24\win64\nssm.exe" "$bundle\tools\"
-          Write-Host "NSSM bundled"
+          Write-Host "NSSM bundled: $(Test-Path "$bundle\tools\nssm.exe")"
 
-      # ── Install NSIS ─────────────────────────────────────────────────────────
-      - name: Install NSIS
+      # ── Install NSIS ──────────────────────────────────────────────────────────
+      - name: Install NSIS 3.10
         shell: pwsh
         run: |
-          $nsisUrl = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10-setup.exe"
-          $nsisInstaller = "$env:TEMP\nsis-setup.exe"
-          
+          $url  = "https://downloads.sourceforge.net/project/nsis/NSIS%203/3.10/nsis-3.10-setup.exe"
+          $inst = "$env:TEMP\nsis-setup.exe"
+
           Write-Host "Downloading NSIS..."
-          Invoke-WebRequest -Uri $nsisUrl -OutFile $nsisInstaller
-          
-          Write-Host "Installing NSIS silently..."
-          Start-Process -FilePath $nsisInstaller -ArgumentList "/S" -Wait
-          
-          # Add to PATH for this job
-          $nsisPath = "C:\Program Files (x86)\NSIS"
-          echo "$nsisPath" | Out-File -FilePath $env:GITHUB_PATH -Append
-          
-          Write-Host "NSIS installed"
+          Invoke-WebRequest -Uri $url -OutFile $inst -UseBasicParsing
 
-      # ── Install NSIS inetc plugin ───────────────────────────────────────────
-      - name: Install NSIS inetc plugin
+          Write-Host "Installing NSIS silently..."
+          Start-Process -FilePath $inst -ArgumentList "/S" -Wait
+
+          $nsisDir = "C:\Program Files (x86)\NSIS"
+          if (-not (Test-Path "$nsisDir\makensis.exe")) {
+            Write-Error "makensis.exe not found after install"
+            exit 1
+          }
+          # Add NSIS to PATH for subsequent steps
+          "$nsisDir" | Out-File -FilePath $env:GITHUB_PATH -Append
+          Write-Host "NSIS installed: $(& "$nsisDir\makensis.exe" /VERSION)"
+
+      # ── Final bundle verification before compiling ─────────────────────────────
+      - name: Verify complete bundle
         shell: pwsh
         run: |
-          $pluginUrl = "https://nsis.sourceforge.io/mediawiki/images/c/c9/Inetc.zip"
-          $pluginZip = "$env:TEMP\inetc.zip"
-          $nsisPluginDir = "C:\Program Files (x86)\NSIS\Plugins\x86-unicode"
-          
-          Invoke-WebRequest -Uri $pluginUrl -OutFile $pluginZip -ErrorAction SilentlyContinue
-          if (Test-Path $pluginZip) {
-            Expand-Archive -Path $pluginZip -DestinationPath "$env:TEMP\inetc" -Force
-            New-Item -ItemType Directory -Force $nsisPluginDir
-            Get-ChildItem "$env:TEMP\inetc" -Filter "*.dll" -Recurse | Copy-Item -Destination $nsisPluginDir
-            Write-Host "inetc plugin installed"
-          } else {
-            Write-Host "::warning::inetc plugin download failed — online download in installer may not work"
+          $bundle = "windows-deployment\installer\bundle"
+          $checks = @(
+            "$bundle\app\dist\index.mjs",
+            "$bundle\app\dist\seed.mjs",
+            "$bundle\app\dist\public\index.html",
+            "$bundle\node\node.exe",
+            "$bundle\tools\nssm.exe",
+            "$bundle\scripts\Install-Service.ps1",
+            "$bundle\scripts\Setup-Database.ps1",
+            "$bundle\scripts\Configure-Firewall.ps1",
+            "$bundle\scripts\Backup-Database.ps1",
+            "$bundle\scripts\Uninstall.ps1",
+            "$bundle\assets\solar-crm.ico",
+            "$bundle\assets\header.bmp",
+            "$bundle\assets\welcome.bmp",
+            "$bundle\assets\license.txt",
+            "$bundle\sql\0001_schema.sql",
+            "$bundle\config\solar-crm.env.template"
+          )
+          $fail = $false
+          foreach ($f in $checks) {
+            $exists = Test-Path $f
+            $icon = if ($exists) { "[OK]" } else { "[MISSING]" }
+            Write-Host "$icon $f"
+            if (-not $exists) { $fail = $true }
           }
+          if ($fail) {
+            Write-Error "Bundle verification FAILED — see missing files above"
+            exit 1
+          }
+          Write-Host "`nBundle verification PASSED — all required files present"
 
-      # ── Compile NSIS installer ───────────────────────────────────────────────
+      # ── Compile NSIS installer ────────────────────────────────────────────────
       - name: Compile NSIS installer
         shell: cmd
         working-directory: windows-deployment\installer
         run: makensis /V3 setup.nsi
 
-      # ── Verify output ────────────────────────────────────────────────────────
-      - name: Verify installer
+      # ── Verify the output exe was created ─────────────────────────────────────
+      - name: Verify installer output
         shell: pwsh
         run: |
-          $installer = "windows-deployment\installer\SolarCRM_Setup.exe"
-          if (Test-Path $installer) {
-            $size = [math]::Round((Get-Item $installer).Length / 1MB, 1)
-            Write-Host "SUCCESS: SolarCRM_Setup.exe ($size MB)"
+          $exe = "windows-deployment\installer\SolarCRM_Setup.exe"
+          if (Test-Path $exe) {
+            $mb = [math]::Round((Get-Item $exe).Length / 1MB, 1)
+            Write-Host "SUCCESS: SolarCRM_Setup.exe created ($mb MB)"
           } else {
-            Write-Error "FAILED: SolarCRM_Setup.exe was not created"
+            Write-Error "FAILED: SolarCRM_Setup.exe was not created by makensis"
             exit 1
           }
 
-      # ── Upload installer artifact ────────────────────────────────────────────
+      # ── Upload installer as workflow artifact ─────────────────────────────────
       - name: Upload SolarCRM_Setup.exe
         uses: actions/upload-artifact@v4
         with:
@@ -191,7 +250,7 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-      # ── Upload to release (on tagged release) ────────────────────────────────
+      # ── Attach to GitHub Release (when a release is published) ────────────────
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2

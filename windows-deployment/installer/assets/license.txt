@@ -1,0 +1,32 @@
+SolarCRM Software License Agreement
+=====================================
+
+Copyright (c) 2024 SunPower Solar. All rights reserved.
+
+This software is licensed, not sold, to the installing business for internal
+operational use only.
+
+PERMITTED USES
+--------------
+* Installation on business-owned computers and servers
+* Use by employees and contractors of the licensed business
+* Data entry, management, and reporting for solar installation operations
+
+RESTRICTIONS
+------------
+* No redistribution, resale, or sub-licensing of this software
+* No reverse engineering, decompilation, or disassembly
+* No use outside the licensed organization
+
+DATA OWNERSHIP
+--------------
+All business data (customers, leads, projects, financials) entered into
+SolarCRM is the exclusive property of the installing business. The software
+developer makes no claim to any such data.
+
+DISCLAIMER OF WARRANTIES
+------------------------
+This software is provided "as is" without warranty of any kind, express or
+implied. The developer is not liable for any damages arising from its use.
+
+By clicking "I Agree" and installing this software, you accept these terms.
