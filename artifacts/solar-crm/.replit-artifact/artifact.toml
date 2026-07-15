@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "SunPower Solar CRM"
+version = "1.0.0"
+id = "artifacts/solar-crm"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19465
+
+[services.development]
+run = "pnpm --filter @workspace/solar-crm run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/solar-crm", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/solar-crm/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19465"
+BASE_PATH = "/"
