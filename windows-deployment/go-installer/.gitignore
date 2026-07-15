@@ -1,4 +1,0 @@
-# bundle/ is assembled by CI (or build-installer.bat) before go build.
-# Only the .gitkeep placeholder is tracked so the directory exists in git.
-bundle/*
-!bundle/.gitkeep
