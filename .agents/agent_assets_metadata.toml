@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "JeFVYyhbHKK4Sfq2ukeOD"
+uri = "file://windows-dist/SolarCRM-Windows-Package.zip"
+type = "unspecified"
+title = "SolarCRM Windows Package (source + scripts + docs)"

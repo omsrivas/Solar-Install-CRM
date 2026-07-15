@@ -1,0 +1,226 @@
+name: Build SolarCRM Windows Installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'artifacts/**'
+      - 'lib/**'
+      - 'windows-deployment/**'
+      - '.github/workflows/build-installer.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:   # Allow manual trigger from GitHub Actions tab
+  release:
+    types: [created]
+
+env:
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
+  NODE_PORTABLE_VERSION: 'v20.14.0'
+  GO_VERSION: '1.21'
+
+jobs:
+  build-installer:
+    name: Build SolarCRM_Setup.exe
+    runs-on: windows-2022
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Go ────────────────────────────────────────────────────────────────────
+      - name: Setup Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      # ── pnpm + Node.js ────────────────────────────────────────────────────────
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      # ── Install workspace dependencies ────────────────────────────────────────
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Generate API client from OpenAPI spec ─────────────────────────────────
+      - name: Generate API client (orval codegen)
+        run: pnpm --filter @workspace/api-spec run codegen
+
+      # ── Build React frontend ──────────────────────────────────────────────────
+      - name: Build frontend
+        run: pnpm --filter @workspace/solar-crm run build
+        env:
+          NODE_ENV: production
+          PORT: 1
+          BASE_PATH: /
+
+      # ── Build Express backend ─────────────────────────────────────────────────
+      - name: Build backend
+        run: pnpm --filter @workspace/api-server run build
+        env:
+          NODE_ENV: production
+
+      # ── Assemble bundle for the Go installer ──────────────────────────────────
+      - name: Assemble installer bundle
+        shell: pwsh
+        run: |
+          $bundle = "windows-deployment\go-installer\bundle"
+          $src    = "windows-deployment\installer"
+
+          # Recreate bundle directory (keep .gitkeep)
+          if (Test-Path "$bundle\app")     { Remove-Item "$bundle\app"     -Recurse -Force }
+          if (Test-Path "$bundle\node")    { Remove-Item "$bundle\node"    -Recurse -Force }
+          if (Test-Path "$bundle\tools")   { Remove-Item "$bundle\tools"   -Recurse -Force }
+          if (Test-Path "$bundle\scripts") { Remove-Item "$bundle\scripts" -Recurse -Force }
+          if (Test-Path "$bundle\config")  { Remove-Item "$bundle\config"  -Recurse -Force }
+          if (Test-Path "$bundle\assets")  { Remove-Item "$bundle\assets"  -Recurse -Force }
+          if (Test-Path "$bundle\sql")     { Remove-Item "$bundle\sql"     -Recurse -Force }
+
+          # App: backend build output + React frontend
+          New-Item -ItemType Directory -Force "$bundle\app\dist\public" | Out-Null
+          Copy-Item -Recurse -Force "artifacts\api-server\dist\*"       "$bundle\app\dist\"
+          Copy-Item -Recurse -Force "artifacts\solar-crm\dist\public\*" "$bundle\app\dist\public\"
+          Write-Host "  App files : OK"
+
+          # PowerShell management scripts
+          New-Item -ItemType Directory -Force "$bundle\scripts" | Out-Null
+          Copy-Item "windows-deployment\scripts\*.ps1" "$bundle\scripts\"
+          Write-Host "  Scripts   : OK"
+
+          # Config templates
+          New-Item -ItemType Directory -Force "$bundle\config" | Out-Null
+          Copy-Item "windows-deployment\config\*" "$bundle\config\"
+          Write-Host "  Config    : OK"
+
+          # Assets (icon, license) — committed sources in installer/assets/
+          New-Item -ItemType Directory -Force "$bundle\assets" | Out-Null
+          Copy-Item "$src\assets\*" "$bundle\assets\"
+          Write-Host "  Assets    : OK"
+
+          # SQL schema — committed source in installer/sql/
+          New-Item -ItemType Directory -Force "$bundle\sql" | Out-Null
+          Copy-Item "$src\sql\*" "$bundle\sql\"
+          Write-Host "  SQL       : OK"
+
+          # Empty runtime directories (logs, backups) — created at runtime by installer,
+          # but we add a placeholder so go:embed picks them up
+          New-Item -ItemType Directory -Force "$bundle\logs"    | Out-Null
+          New-Item -ItemType Directory -Force "$bundle\backups" | Out-Null
+          "" | Out-File "$bundle\logs\.gitkeep"    -Encoding ascii
+          "" | Out-File "$bundle\backups\.gitkeep" -Encoding ascii
+
+          Write-Host "`n  Bundle assembled OK"
+
+      # ── Download portable Node.js ─────────────────────────────────────────────
+      - name: Download portable Node.js ${{ env.NODE_PORTABLE_VERSION }}
+        shell: pwsh
+        run: |
+          $ver    = "${{ env.NODE_PORTABLE_VERSION }}"
+          $url    = "https://nodejs.org/dist/$ver/node-$ver-win-x64.zip"
+          $zip    = "$env:TEMP\node-portable.zip"
+          $bundle = "windows-deployment\go-installer\bundle"
+
+          Write-Host "Downloading Node.js $ver portable..."
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+
+          Write-Host "Extracting..."
+          Expand-Archive -Path $zip -DestinationPath "$env:TEMP\node-extract" -Force
+
+          New-Item -ItemType Directory -Force "$bundle\node" | Out-Null
+          Copy-Item -Recurse -Force "$env:TEMP\node-extract\node-$ver-win-x64\*" "$bundle\node\"
+          Write-Host "Node.js bundled: $((Get-ChildItem "$bundle\node").Count) items"
+
+      # ── Download NSSM (Windows service manager) ───────────────────────────────
+      - name: Download NSSM
+        shell: pwsh
+        run: |
+          $url    = "https://nssm.cc/release/nssm-2.24.zip"
+          $zip    = "$env:TEMP\nssm.zip"
+          $bundle = "windows-deployment\go-installer\bundle"
+
+          Write-Host "Downloading NSSM..."
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          Expand-Archive -Path $zip -DestinationPath "$env:TEMP\nssm-extract" -Force
+
+          New-Item -ItemType Directory -Force "$bundle\tools" | Out-Null
+          Copy-Item "$env:TEMP\nssm-extract\nssm-2.24\win64\nssm.exe" "$bundle\tools\"
+          Write-Host "NSSM bundled: $(Test-Path "$bundle\tools\nssm.exe")"
+
+      # ── Verify bundle is complete before compiling ────────────────────────────
+      - name: Verify bundle
+        shell: pwsh
+        run: |
+          $bundle = "windows-deployment\go-installer\bundle"
+          $required = @(
+            "$bundle\app\dist\index.mjs",
+            "$bundle\app\dist\seed.mjs",
+            "$bundle\app\dist\public\index.html",
+            "$bundle\node\node.exe",
+            "$bundle\tools\nssm.exe",
+            "$bundle\scripts\Install-Service.ps1",
+            "$bundle\scripts\Setup-Database.ps1",
+            "$bundle\scripts\Configure-Firewall.ps1",
+            "$bundle\scripts\Backup-Database.ps1",
+            "$bundle\scripts\Uninstall.ps1",
+            "$bundle\assets\solar-crm.ico",
+            "$bundle\assets\license.txt",
+            "$bundle\sql\0001_schema.sql",
+            "$bundle\config\solar-crm.env.template"
+          )
+          $fail = $false
+          foreach ($f in $required) {
+            if (Test-Path $f) {
+              Write-Host "  [OK]     $f"
+            } else {
+              Write-Host "  [MISSING] $f"
+              $fail = $true
+            }
+          }
+          if ($fail) {
+            Write-Error "Bundle incomplete — see MISSING entries above"
+            exit 1
+          }
+          Write-Host "`n  Bundle verification PASSED"
+
+      # ── Compile Go installer (no external tool needed) ────────────────────────
+      - name: Compile Go installer
+        shell: pwsh
+        working-directory: windows-deployment\go-installer
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          Write-Host "Building SolarCRM_Setup.exe with Go..."
+          go build -ldflags="-s -w" -o SolarCRM_Setup.exe .
+          $mb = [math]::Round((Get-Item SolarCRM_Setup.exe).Length / 1MB, 1)
+          Write-Host "SUCCESS: SolarCRM_Setup.exe created ($mb MB)"
+
+      # ── Upload installer as workflow artifact ─────────────────────────────────
+      - name: Upload SolarCRM_Setup.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: SolarCRM_Setup-${{ github.sha }}
+          path: windows-deployment/go-installer/SolarCRM_Setup.exe
+          retention-days: 90
+          if-no-files-found: error
+
+      # ── Attach to GitHub Release (when a release is published) ────────────────
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windows-deployment/go-installer/SolarCRM_Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
