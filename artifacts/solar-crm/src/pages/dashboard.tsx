@@ -3,29 +3,88 @@ import {
   useGetMe, getGetMeQueryKey,
   useListProjects, useListServiceCalls,
 } from "@workspace/api-client-react";
-import { 
-  Users, CalendarClock, Briefcase, IndianRupee, 
+import {
+  Users, CalendarClock, Briefcase, IndianRupee,
   AlertTriangle, PackageX, CheckCircle2, Wallet,
-  ArrowRight, Wrench, Bell, Clock, Phone, MapPin
+  ArrowUpRight, Wrench, Bell, Clock, MapPin,
+  Activity, Zap,
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 
-function KPICard({ title, value, icon: Icon, colorClass, link }: { title: string, value: string | number, icon: React.ElementType, colorClass: string, link: string }) {
+// ─── KPI Card ─────────────────────────────────────────────────────────────────
+
+function KPICard({
+  title,
+  value,
+  icon: Icon,
+  colorClass,
+  bgClass,
+  link,
+}: {
+  title: string;
+  value: string | number;
+  icon: React.ElementType;
+  colorClass: string;
+  bgClass: string;
+  link: string;
+}) {
   return (
-    <Link href={link} className="bg-white rounded-lg border border-gray-200 p-5 hover:border-gray-300 hover:shadow-sm transition-all group flex flex-col gap-4 relative overflow-hidden" data-testid={`card-kpi-${title.toLowerCase().replace(/\s+/g, '-')}`}>
-      <div className="flex justify-between items-start">
-        <div className={`p-2 rounded-lg ${colorClass} bg-opacity-10 flex-shrink-0`}>
-          <Icon className={`h-5 w-5 ${colorClass.replace('bg-', 'text-').replace('text-opacity-10', '')}`} />
+    <Link
+      href={link}
+      className="group relative flex flex-col gap-4 overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 p-5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
+      data-testid={`card-kpi-${title.toLowerCase().replace(/\s+/g, "-")}`}
+    >
+      {/* Top row */}
+      <div className="flex items-start justify-between">
+        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${bgClass}`}>
+          <Icon className={`h-5 w-5 ${colorClass}`} />
         </div>
-        <ArrowRight className="h-4 w-4 text-gray-300 group-hover:text-primary transition-colors" />
+        <ArrowUpRight
+          className={`h-4 w-4 transition-all duration-200 ${colorClass} opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5`}
+        />
       </div>
+
+      {/* Value + label */}
       <div>
-        <h3 className="text-sm font-medium text-gray-500">{title}</h3>
-        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+        <p className="text-[13px] font-medium text-gray-500">{title}</p>
+        <p className="mt-1 font-heading text-2xl font-bold tracking-tight text-gray-900">
+          {value}
+        </p>
       </div>
-      <div className={`absolute bottom-0 left-0 h-1 w-0 transition-[width] duration-200 ease-out group-hover:w-full ${colorClass.replace('text-', 'bg-')}`} />
+
+      {/* Accent bar */}
+      <span
+        className={`absolute bottom-0 left-0 h-[3px] w-0 rounded-full transition-all duration-300 ease-out group-hover:w-full ${bgClass.replace("/10", "").replace("/15", "")}`}
+      />
     </Link>
+  );
+}
+
+// ─── Section Card shell ────────────────────────────────────────────────────────
+
+function SectionCard({
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon?: React.ElementType;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
+      <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+          {Icon && <Icon className="h-4 w-4 text-gray-400" />}
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -35,123 +94,147 @@ function EngineerDashboard({ userId }: { userId: number }) {
   const { data: myProjects, isLoading: loadingProjects } = useListProjects({ assignedEngineerId: userId });
   const { data: myCalls, isLoading: loadingCalls } = useListServiceCalls({ assignedEngineerId: userId });
 
-  const activeProjects = myProjects?.filter(p => p.stage !== "completed") ?? [];
-  const openCalls = myCalls?.filter(c => c.status !== "closed") ?? [];
+  const activeProjects = myProjects?.filter((p) => p.stage !== "completed") ?? [];
+  const openCalls = myCalls?.filter((c) => c.status !== "closed") ?? [];
+  const completedProjects = myProjects?.filter((p) => p.stage === "completed").length ?? 0;
+  const urgentCalls = myCalls?.filter((c) => c.priority === "urgent" && c.status !== "closed").length ?? 0;
+
+  const stats = [
+    { label: "Active Projects", value: activeProjects.length, colorClass: "text-indigo-600", bgClass: "bg-indigo-50", icon: Briefcase },
+    { label: "Open Service Calls", value: openCalls.length, colorClass: "text-orange-600", bgClass: "bg-orange-50", icon: Wrench },
+    { label: "Completed Projects", value: completedProjects, colorClass: "text-emerald-600", bgClass: "bg-emerald-50", icon: CheckCircle2 },
+    { label: "Urgent Calls", value: urgentCalls, colorClass: "text-rose-600", bgClass: "bg-rose-50", icon: AlertTriangle },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">My Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Your active assignments</p>
+        <h1 className="font-heading text-[1.6rem] font-bold tracking-tight text-gray-900">
+          My Dashboard
+        </h1>
+        <p className="mt-1 text-sm text-gray-500">Your active assignments at a glance</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-500 font-medium">Active Projects</p>
-          <p className="text-2xl font-bold mt-1 text-indigo-600">{activeProjects.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-500 font-medium">Open Service Calls</p>
-          <p className="text-2xl font-bold mt-1 text-orange-600">{openCalls.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-500 font-medium">Completed Projects</p>
-          <p className="text-2xl font-bold mt-1 text-green-600">
-            {myProjects?.filter(p => p.stage === "completed").length ?? 0}
-          </p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-500 font-medium">Urgent Calls</p>
-          <p className="text-2xl font-bold mt-1 text-red-600">
-            {myCalls?.filter(c => c.priority === "urgent" && c.status !== "closed").length ?? 0}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* My Projects */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-              <Briefcase className="h-4 w-4 text-gray-400" />
-              My Active Projects
-            </h2>
-            <Link href="/projects" className="text-xs text-primary hover:underline">View all</Link>
+      {/* Stat row */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {stats.map(({ label, value, colorClass, bgClass, icon: StatIcon }) => (
+          <div
+            key={label}
+            className="flex flex-col gap-3 rounded-xl border border-gray-200/80 bg-white/95 p-4 shadow-sm backdrop-blur-sm"
+          >
+            <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${bgClass}`}>
+              <StatIcon className={`h-4 w-4 ${colorClass}`} />
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+              <p className={`mt-0.5 font-heading text-2xl font-bold tracking-tight ${colorClass}`}>{value}</p>
+            </div>
           </div>
-          <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+        ))}
+      </div>
+
+      {/* Detail panels */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* My Projects */}
+        <SectionCard
+          title="My Active Projects"
+          icon={Briefcase}
+          action={
+            <Link href="/projects" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          }
+        >
+          <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
             {loadingProjects ? (
-              <p className="p-4 text-sm text-center text-gray-400 animate-pulse">Loading...</p>
+              <p className="p-5 text-center text-sm text-gray-400 animate-pulse">Loading…</p>
             ) : activeProjects.length === 0 ? (
-              <p className="p-6 text-sm text-center text-gray-400">No active projects assigned to you.</p>
+              <p className="p-8 text-center text-sm text-gray-400">No active projects assigned to you.</p>
             ) : (
-              activeProjects.map(project => (
-                <Link key={project.id} href={`/projects/${project.id}`} className="flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors">
-                  <div className="h-8 w-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              activeProjects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.id}`}
+                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-gray-50/80"
+                >
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700 uppercase">
                     {project.customerName.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-900 text-sm truncate">{project.customerName}</p>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="h-3 w-3" />{project.city ?? "—"}
+                    <p className="truncate text-sm font-medium text-gray-900">{project.customerName}</p>
+                    <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      {project.city ?? "—"}
                     </p>
                   </div>
-                  <div className="flex-shrink-0 text-right">
-                    <span className="text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded">
-                      {project.stage?.replace(/_/g, " ")}
-                    </span>
-                  </div>
+                  <span className="flex-shrink-0 rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-700">
+                    {project.stage?.replace(/_/g, " ")}
+                  </span>
                 </Link>
               ))
             )}
           </div>
-        </div>
+        </SectionCard>
 
         {/* My Service Calls */}
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-          <div className="p-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-            <h2 className="font-semibold text-gray-800 flex items-center gap-2">
-              <Wrench className="h-4 w-4 text-gray-400" />
-              My Open Service Calls
-            </h2>
-            <Link href="/service" className="text-xs text-primary hover:underline">View all</Link>
-          </div>
-          <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+        <SectionCard
+          title="My Open Service Calls"
+          icon={Wrench}
+          action={
+            <Link href="/service" className="text-xs font-medium text-primary hover:underline">
+              View all
+            </Link>
+          }
+        >
+          <div className="max-h-80 divide-y divide-gray-100 overflow-y-auto">
             {loadingCalls ? (
-              <p className="p-4 text-sm text-center text-gray-400 animate-pulse">Loading...</p>
+              <p className="p-5 text-center text-sm text-gray-400 animate-pulse">Loading…</p>
             ) : openCalls.length === 0 ? (
-              <p className="p-6 text-sm text-center text-gray-400">No open service calls assigned to you.</p>
+              <p className="p-8 text-center text-sm text-gray-400">No open service calls assigned to you.</p>
             ) : (
-              openCalls.map(call => (
-                <div key={call.id} className="flex items-start gap-3 p-4">
-                  <span className={`mt-0.5 h-2 w-2 rounded-full flex-shrink-0 ${
-                    call.priority === "urgent" ? "bg-red-500" :
-                    call.priority === "high" ? "bg-orange-500" :
-                    call.priority === "medium" ? "bg-amber-400" : "bg-gray-300"
-                  }`} />
+              openCalls.map((call) => (
+                <div key={call.id} className="flex items-start gap-3 px-5 py-3.5">
+                  <span
+                    className={`mt-1.5 h-2 w-2 flex-shrink-0 rounded-full ${
+                      call.priority === "urgent"
+                        ? "bg-rose-500"
+                        : call.priority === "high"
+                        ? "bg-orange-500"
+                        : call.priority === "medium"
+                        ? "bg-amber-400"
+                        : "bg-gray-300"
+                    }`}
+                  />
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-gray-900 text-sm">
-                      SRV-{call.id.toString().padStart(4, "0")} · {call.customerName}
+                    <p className="text-sm font-medium text-gray-900">
+                      SRV-{call.id.toString().padStart(4, "0")}
+                      <span className="ml-1.5 font-normal text-gray-500">· {call.customerName}</span>
                     </p>
-                    <p className="text-xs text-gray-500 truncate mt-0.5">{call.issueDescription}</p>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">{call.issueDescription}</p>
                     {call.scheduledDate && (
-                      <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
-                        <Clock className="h-3 w-3" />
+                      <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
+                        <Clock className="h-3 w-3 flex-shrink-0" />
                         {format(new Date(call.scheduledDate), "MMM d")}
                       </p>
                     )}
                   </div>
-                  <span className={`flex-shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                    call.status === "pending_complaint" ? "bg-orange-100 text-orange-700" :
-                    call.status === "in_progress" ? "bg-blue-100 text-blue-700" :
-                    "bg-amber-100 text-amber-700"
-                  }`}>
+                  <span
+                    className={`flex-shrink-0 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      call.status === "pending_complaint"
+                        ? "bg-orange-100 text-orange-700"
+                        : call.status === "in_progress"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
                     {call.status.replace(/_/g, " ")}
                   </span>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </SectionCard>
       </div>
     </div>
   );
@@ -171,130 +254,241 @@ type DashSummary = {
   overdueFollowUps?: number;
 };
 
-function StandardDashboard({ summary, role }: { summary: DashSummary, role: string }) {
+function StandardDashboard({ summary, role }: { summary: DashSummary; role: string }) {
   const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount);
+    new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(amount);
 
   const overdueCount = (summary as { overdueFollowUps?: number }).overdueFollowUps ?? 0;
   const showLeads = ["admin", "sales"].includes(role);
   const showFinance = ["admin", "finance"].includes(role);
   const showInventory = ["admin", "warehouse"].includes(role);
 
+  const quickActions = [
+    ...(showLeads
+      ? [{ href: "/leads/new", icon: Users, label: "Add Lead", colorClass: "text-primary", bgClass: "bg-primary/10" }]
+      : []),
+    { href: "/projects", icon: Briefcase, label: "Projects", colorClass: "text-indigo-600", bgClass: "bg-indigo-100" },
+    ...(showFinance
+      ? [{ href: "/finance", icon: IndianRupee, label: "Finance", colorClass: "text-emerald-600", bgClass: "bg-emerald-100" }]
+      : []),
+    { href: "/service", icon: Wrench, label: "Service", colorClass: "text-rose-600", bgClass: "bg-rose-100" },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-7">
+      {/* Page header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Dashboard Overview</h1>
-          <p className="text-sm text-gray-500 mt-1">Real-time control center metrics</p>
+          <h1 className="font-heading text-[1.6rem] font-bold tracking-tight text-gray-900">
+            Dashboard Overview
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">Real-time control centre metrics</p>
         </div>
-        <div className="text-xs font-mono text-gray-400 bg-white px-3 py-1.5 rounded-md border border-gray-200">
-          Last updated: {new Date().toLocaleTimeString()}
+        <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-mono text-gray-400 shadow-sm">
+          <Activity className="h-3 w-3" />
+          {new Date().toLocaleTimeString()}
         </div>
       </div>
 
-      {/* Overdue follow-up reminder banner (admin + sales only) */}
+      {/* Overdue banner */}
       {overdueCount > 0 && showLeads && (
-        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
-          <Bell className="h-5 w-5 text-amber-600 flex-shrink-0" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800">
+        <div className="flex items-center gap-3.5 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3.5 backdrop-blur-sm">
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-amber-100">
+            <Bell className="h-4 w-4 text-amber-600" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-amber-900">
               {overdueCount} lead{overdueCount !== 1 ? "s" : ""} overdue for follow-up
             </p>
-            <p className="text-xs text-amber-600 mt-0.5">
+            <p className="mt-0.5 text-xs text-amber-600">
               Weekly reminders are logged automatically every Monday. Review and reschedule these leads.
             </p>
           </div>
-          <Link href="/leads" className="text-xs font-bold text-amber-700 hover:underline flex-shrink-0">
-            View Leads →
+          <Link
+            href="/leads"
+            className="flex-shrink-0 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 transition-colors hover:bg-amber-50"
+          >
+            View Leads
           </Link>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {showLeads && (
           <>
-            <KPICard title="Total Active Leads" value={summary.totalLeads} icon={Users} colorClass="text-blue-600 bg-blue-100" link="/leads" />
-            <KPICard title="Today's Follow-ups" value={summary.todayFollowUps} icon={CalendarClock} colorClass="text-amber-600 bg-amber-100" link="/leads" />
-            <KPICard title="Orders Won (This Month)" value={summary.ordersOwned} icon={CheckCircle2} colorClass="text-green-600 bg-green-100" link="/projects" />
+            <KPICard
+              title="Total Active Leads"
+              value={summary.totalLeads}
+              icon={Users}
+              colorClass="text-blue-600"
+              bgClass="bg-blue-100"
+              link="/leads"
+            />
+            <KPICard
+              title="Today's Follow-ups"
+              value={summary.todayFollowUps}
+              icon={CalendarClock}
+              colorClass="text-amber-600"
+              bgClass="bg-amber-100"
+              link="/leads"
+            />
+            <KPICard
+              title="Orders Won (This Month)"
+              value={summary.ordersOwned}
+              icon={CheckCircle2}
+              colorClass="text-emerald-600"
+              bgClass="bg-emerald-100"
+              link="/projects"
+            />
           </>
         )}
-        <KPICard title="Active Projects" value={summary.activeProjects} icon={Briefcase} colorClass="text-indigo-600 bg-indigo-100" link="/projects" />
+        <KPICard
+          title="Active Projects"
+          value={summary.activeProjects}
+          icon={Briefcase}
+          colorClass="text-indigo-600"
+          bgClass="bg-indigo-100"
+          link="/projects"
+        />
         {showFinance && (
           <>
-            <KPICard title="Total Revenue (This Month)" value={formatCurrency(summary.totalRevenue)} icon={IndianRupee} colorClass="text-emerald-600 bg-emerald-100" link="/finance" />
-            <KPICard title="Pending Payments" value={summary.pendingPayments} icon={Wallet} colorClass="text-rose-600 bg-rose-100" link="/finance" />
+            <KPICard
+              title="Revenue (This Month)"
+              value={formatCurrency(summary.totalRevenue)}
+              icon={IndianRupee}
+              colorClass="text-emerald-600"
+              bgClass="bg-emerald-100"
+              link="/finance"
+            />
+            <KPICard
+              title="Pending Payments"
+              value={summary.pendingPayments}
+              icon={Wallet}
+              colorClass="text-rose-600"
+              bgClass="bg-rose-100"
+              link="/finance"
+            />
           </>
         )}
-        <KPICard title="Open Service Calls" value={summary.pendingComplaints} icon={AlertTriangle} colorClass="text-orange-600 bg-orange-100" link="/service" />
+        <KPICard
+          title="Open Service Calls"
+          value={summary.pendingComplaints}
+          icon={AlertTriangle}
+          colorClass="text-orange-600"
+          bgClass="bg-orange-100"
+          link="/service"
+        />
         {showInventory && (
-          <KPICard title="Low Stock Alerts" value={summary.lowStockAlerts} icon={PackageX} colorClass="text-red-600 bg-red-100" link="/inventory" />
+          <KPICard
+            title="Low Stock Alerts"
+            value={summary.lowStockAlerts}
+            icon={PackageX}
+            colorClass="text-red-600"
+            bgClass="bg-red-100"
+            link="/inventory"
+          />
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        <div className="lg:col-span-2 bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-            <h2 className="font-semibold text-gray-800">Quick Actions</h2>
-          </div>
-          <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
-            {showLeads && (
-              <Link href="/leads/new" className="flex flex-col items-center justify-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-primary/30 transition-colors text-center gap-2">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                  <Users className="h-5 w-5" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">Add Lead</span>
-              </Link>
-            )}
-            <Link href="/projects" className="flex flex-col items-center justify-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-primary/30 transition-colors text-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
-                <Briefcase className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">View Projects</span>
-            </Link>
-            {showFinance && (
-              <Link href="/finance" className="flex flex-col items-center justify-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-primary/30 transition-colors text-center gap-2">
-                <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <IndianRupee className="h-5 w-5" />
-                </div>
-                <span className="text-sm font-medium text-gray-700">Finance</span>
-              </Link>
-            )}
-            <Link href="/service" className="flex flex-col items-center justify-center p-4 border border-gray-100 rounded-lg hover:bg-gray-50 hover:border-primary/30 transition-colors text-center gap-2">
-              <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <span className="text-sm font-medium text-gray-700">Service</span>
-            </Link>
-          </div>
+      {/* Lower panels */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Quick Actions — spans 2 cols */}
+        <div className="lg:col-span-2">
+          <SectionCard title="Quick Actions" icon={Zap}>
+            <div className="grid grid-cols-2 gap-3 p-5 sm:grid-cols-4">
+              {quickActions.map(({ href, icon: QIcon, label, colorClass, bgClass }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="group flex flex-col items-center justify-center gap-2.5 rounded-xl border border-gray-100 p-4 text-center transition-all duration-200 hover:border-gray-200 hover:bg-gray-50/80 hover:shadow-sm"
+                >
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110 ${bgClass}`}
+                  >
+                    <QIcon className={`h-5 w-5 ${colorClass}`} />
+                  </div>
+                  <span className="text-[13px] font-medium text-gray-700">{label}</span>
+                </Link>
+              ))}
+            </div>
+          </SectionCard>
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden flex flex-col">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-            <h2 className="font-semibold text-gray-800">System Status</h2>
-            {role === "admin" && <Link href="/system" className="text-xs text-primary hover:underline">View All</Link>}
-          </div>
-          <div className="p-5 flex-1 flex flex-col justify-center space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="relative flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500"></span>
+        {/* System Status */}
+        <SectionCard
+          title="System Status"
+          icon={Activity}
+          action={
+            role === "admin" ? (
+              <Link href="/system" className="text-xs font-medium text-primary hover:underline">
+                View All
+              </Link>
+            ) : undefined
+          }
+        >
+          <div className="flex flex-1 flex-col justify-center gap-6 p-5">
+            {/* Operational indicator */}
+            <div className="flex items-center gap-3.5">
+              <div className="relative flex h-3 w-3 flex-shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-gray-900">All systems operational</p>
-                <p className="text-xs text-gray-500">Database & API connected</p>
+                <p className="text-xs text-gray-500">Database &amp; API connected</p>
               </div>
             </div>
+
+            {/* Storage bar */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-gray-500">Storage Capacity</span>
-                <span className="font-mono font-medium text-gray-700">45%</span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Storage Capacity</span>
+                <span className="font-mono text-xs font-semibold text-gray-700">45%</span>
               </div>
-              <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: "45%" }}></div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: "45%" }}
+                />
               </div>
+              <p className="text-[10px] text-gray-400">27 GB of 60 GB used</p>
             </div>
           </div>
-        </div>
+        </SectionCard>
+      </div>
+    </div>
+  );
+}
+
+// ─── Loading skeleton ──────────────────────────────────────────────────────────
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-7 animate-pulse">
+      {/* Header skeleton */}
+      <div className="space-y-2">
+        <div className="h-8 w-56 rounded-lg bg-gray-200" />
+        <div className="h-4 w-40 rounded-lg bg-gray-100" />
+      </div>
+      {/* KPI cards skeleton */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-32 rounded-xl bg-gray-200"
+            style={{ opacity: 1 - i * 0.07 }}
+          />
+        ))}
+      </div>
+      {/* Lower panels skeleton */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="h-48 rounded-xl bg-gray-200 lg:col-span-2" />
+        <div className="h-48 rounded-xl bg-gray-200" />
       </div>
     </div>
   );
@@ -305,17 +499,11 @@ function StandardDashboard({ summary, role }: { summary: DashSummary, role: stri
 export function Dashboard() {
   const { data: user } = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
   const { data: summary, isLoading } = useGetDashboardSummary({
-    query: { queryKey: getGetDashboardSummaryQueryKey() }
+    query: { queryKey: getGetDashboardSummaryQueryKey() },
   });
 
   if (isLoading || !summary || !user) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="h-32 bg-gray-200 rounded-lg" />
-        ))}
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (user.role === "engineer") {
