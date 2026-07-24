@@ -8,6 +8,7 @@ import {
   findLeadById,
   findUserByFirebaseUid,
   findUserById,
+  listActivities,
   listLeadNotes,
   listLeads,
   summarizeLeads,
@@ -342,6 +343,30 @@ router.post(
       response.status(201).json(created);
     } catch {
       response.status(500).json({ error: "Unable to create lead note." });
+    }
+  },
+);
+
+// GET /leads/:id/timeline
+router.get(
+  "/leads/:id/timeline",
+  ...salesAndAbove,
+  async (request, response) => {
+    const id = parseId(request.params.id);
+    if (!id) {
+      response.status(400).json({ error: "Invalid lead ID." });
+      return;
+    }
+    try {
+      const lead = await findLeadById(id);
+      if (!lead) {
+        response.status(404).json({ error: "Lead not found." });
+        return;
+      }
+      const activities = await listActivities({ entityType: "lead", entityId: id });
+      response.json(activities);
+    } catch {
+      response.status(500).json({ error: "Unable to fetch lead timeline." });
     }
   },
 );

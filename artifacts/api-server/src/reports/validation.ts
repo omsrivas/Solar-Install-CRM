@@ -8,7 +8,7 @@ export const reportQuerySchema = z
     toDate: isoDate.optional(),
   })
   .refine(
-    ({ fromDate, toDate }) =>
+    ({ fromDate, toDate }: { fromDate?: string; toDate?: string }) =>
       !fromDate || !toDate || fromDate <= toDate,
     { message: "fromDate must be before or equal to toDate." },
   );
