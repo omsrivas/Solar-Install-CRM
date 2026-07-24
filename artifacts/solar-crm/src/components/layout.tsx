@@ -200,7 +200,7 @@ export function Layout({ children }: { children: ReactNode }) {
     return (
       <Link
         href={item.href}
-        className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors ${
+        className={`flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-[background-color,color,transform] duration-200 ease-out active:translate-y-px ${
           isActive
             ? "bg-sidebar-accent text-sidebar-primary font-medium"
             : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
@@ -221,7 +221,7 @@ export function Layout({ children }: { children: ReactNode }) {
           Hitech Electropower
         </span>
         <button
-          className="ml-auto md:hidden p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/70"
+          className="ml-auto rounded-md p-1.5 text-sidebar-foreground/70 transition-[background-color,color,transform] duration-200 ease-out hover:bg-sidebar-accent active:scale-95 md:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-label="Close menu"
         >
@@ -259,7 +259,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <button
             onClick={handleLogout}
-            className="p-1.5 hover:bg-sidebar-accent rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors flex-shrink-0"
+            className="flex-shrink-0 rounded-md p-1.5 text-sidebar-foreground/50 transition-[background-color,color,transform] duration-200 ease-out hover:bg-sidebar-accent hover:text-sidebar-foreground active:scale-95"
             data-testid="button-logout"
             title="Sign out"
           >
@@ -276,7 +276,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-sidebar text-sidebar-foreground flex items-center px-4 z-40 border-b border-sidebar-border gap-3">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/70"
+          className="rounded-md p-1.5 text-sidebar-foreground/70 transition-[background-color,color,transform] duration-200 ease-out hover:bg-sidebar-accent active:scale-95"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
@@ -302,14 +302,16 @@ export function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Mobile drawer */}
-      <aside className={`md:hidden fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col z-50 transition-transform duration-200 ease-in-out ${sidebarOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"}`}>
+      <aside className={`md:hidden fixed top-0 left-0 h-full w-72 max-w-[85vw] bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col z-50 transition-transform duration-200 ease-out ${sidebarOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"}`}>
         <SidebarContent />
       </aside>
 
       {/* Main content */}
       <main className="flex-1 min-w-0 min-h-0 bg-background overflow-y-auto pt-14 md:pt-0">
         <div className="container mx-auto p-4 md:p-6 lg:p-8 max-w-7xl">
-          {children}
+          <div key={location} className="page-transition">
+            {children}
+          </div>
         </div>
       </main>
     </div>

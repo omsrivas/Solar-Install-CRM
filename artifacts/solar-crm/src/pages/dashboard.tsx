@@ -24,7 +24,7 @@ function KPICard({ title, value, icon: Icon, colorClass, link }: { title: string
         <h3 className="text-sm font-medium text-gray-500">{title}</h3>
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
       </div>
-      <div className={`absolute bottom-0 left-0 h-1 w-0 group-hover:w-full transition-all duration-300 ${colorClass.replace('text-', 'bg-')}`} />
+      <div className={`absolute bottom-0 left-0 h-1 w-0 transition-[width] duration-200 ease-out group-hover:w-full ${colorClass.replace('text-', 'bg-')}`} />
     </Link>
   );
 }

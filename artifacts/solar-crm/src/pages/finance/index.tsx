@@ -303,7 +303,7 @@ export function Finance() {
               +₹{(summary?.monthlyCollected || 0).toLocaleString()}
             </span>
           </div>
-          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-emerald-50 rounded-full blur-2xl transition-transform duration-200 ease-out group-hover:scale-105"></div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
@@ -326,7 +326,7 @@ export function Finance() {
               ₹{(summary?.advanceReceived || 0).toLocaleString()}
             </span>
           </div>
-          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-amber-50 rounded-full blur-2xl transition-transform duration-200 ease-out group-hover:scale-105"></div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
@@ -347,7 +347,7 @@ export function Finance() {
             <span className="text-gray-500">Immediate Action Required</span>
             <span className="font-semibold text-red-600">Urgent</span>
           </div>
-          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-red-50 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-red-50 rounded-full blur-2xl transition-transform duration-200 ease-out group-hover:scale-105"></div>
         </div>
       </div>
 

@@ -73,7 +73,7 @@ export function Reports() {
       </div>
 
       {activeTab === "sales" && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Total Leads</p>
@@ -128,7 +128,7 @@ export function Reports() {
       )}
 
       {activeTab === "finance" && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-xl border border-emerald-200 shadow-sm relative overflow-hidden">
               <div className="absolute inset-0 bg-emerald-50/50 pointer-events-none" />
@@ -193,7 +193,7 @@ export function Reports() {
       )}
 
       {activeTab === "inventory" && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
               <p className="text-sm text-gray-500 font-bold uppercase tracking-wider">Total Items</p>

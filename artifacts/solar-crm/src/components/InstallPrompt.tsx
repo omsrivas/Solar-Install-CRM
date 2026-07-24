@@ -69,7 +69,7 @@ export function InstallPrompt() {
       <div
         role="dialog"
         aria-label="Install SunPower CRM"
-        className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[9999] bg-white border border-amber-100 rounded-2xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300"
+        className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-[9999] bg-white border border-amber-100 rounded-2xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom-2 duration-200 ease-out"
       >
         <div className="flex-shrink-0 w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center">
           <Sun className="w-6 h-6 text-amber-500" />
@@ -117,7 +117,7 @@ export function InstallPrompt() {
       <div
         role="dialog"
         aria-label="Add SunPower CRM to Home Screen"
-        className="fixed bottom-4 left-4 right-4 z-[9999] bg-white border border-amber-100 rounded-2xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300"
+        className="fixed bottom-4 left-4 right-4 z-[9999] bg-white border border-amber-100 rounded-2xl shadow-xl p-4 flex items-start gap-3 animate-in slide-in-from-bottom-2 duration-200 ease-out"
       >
         <div className="flex-shrink-0 w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center">
           <Sun className="w-6 h-6 text-amber-500" />

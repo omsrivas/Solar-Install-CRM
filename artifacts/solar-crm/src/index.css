@@ -116,6 +116,10 @@
   /* Elevation tint layers (used by hover-elevate utilities) */
   --elevate-1: rgba(0, 0, 0, 0.04);
   --elevate-2: rgba(0, 0, 0, 0.08);
+
+  /* Shared motion: responsive, calm, and consistent across the product. */
+  --motion-duration: 200ms;
+  --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -203,7 +207,8 @@
   input,
   select,
   textarea {
-    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+    transition-duration: var(--motion-duration);
+    transition-timing-function: var(--motion-ease-out);
   }
 
   input::placeholder,
@@ -213,6 +218,79 @@
 }
 
 @layer utilities {
+  /* Tailwind transition utilities inherit the same motion token unless a
+     component intentionally opts into a different animation primitive. */
+  [class*="transition-"],
+  [class~="transition"] {
+    transition-duration: var(--motion-duration);
+    transition-timing-function: var(--motion-ease-out);
+  }
+
+  .page-transition {
+    animation: page-enter var(--motion-duration) var(--motion-ease-out) both;
+  }
+
+  /* Normalize Radix/Tailwind entrance and exit utilities used by menus,
+     popovers, tooltips, and command surfaces. */
+  [class*="animate-in"],
+  [class*="animate-out"] {
+    animation-duration: var(--motion-duration) !important;
+    animation-timing-function: var(--motion-ease-out) !important;
+  }
+
+  [class*="zoom-in-95"],
+  [class*="zoom-in-90"] {
+    animation-name: ui-zoom-in !important;
+  }
+
+  [class*="zoom-out-95"] {
+    animation-name: ui-zoom-out !important;
+  }
+
+  @keyframes ui-zoom-in {
+    from {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes ui-zoom-out {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 1ms !important;
+    }
+  }
+
   /* ── Hover / active elevation system ─────────────────────────────────────
      Adds a subtle tint overlay on hover/active without altering layout.
      Works on bordered elements (inset: -1px to cover the border).

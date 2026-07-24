@@ -118,7 +118,7 @@ export function Settings() {
           ) : (
             <div className="p-6">
               {activeTab === "general" && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="space-y-6 animate-in fade-in duration-200 ease-out">
                   <h2 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Company Information</h2>
                   
                   <div className="space-y-4 max-w-lg">
@@ -166,7 +166,7 @@ export function Settings() {
               )}
 
               {activeTab === "leads" && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="space-y-6 animate-in fade-in duration-200 ease-out">
                   <h2 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">Lead & Pipeline Configuration</h2>
                   
                   <div className="space-y-4 max-w-lg">
@@ -197,7 +197,7 @@ export function Settings() {
               )}
 
               {activeTab === "notifications" && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="space-y-6 animate-in fade-in duration-200 ease-out">
                   <h2 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">System Alerts</h2>
                   
                   <div className="space-y-4 max-w-lg">
@@ -231,7 +231,7 @@ export function Settings() {
               )}
 
               {activeTab === "ui" && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="space-y-6 animate-in fade-in duration-200 ease-out">
                   <h2 className="text-lg font-bold text-gray-900 mb-4 border-b border-gray-100 pb-2">User Interface Preferences</h2>
                   
                   <div className="space-y-4 max-w-lg">
