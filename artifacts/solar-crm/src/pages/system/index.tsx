@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { EmptyTableState, TableSkeleton } from "@/components/table-state";
 
 export function System() {
   const { data: health, isLoading: healthLoading } = useGetSystemHealth({
@@ -30,7 +31,15 @@ export function System() {
   };
 
   if (healthLoading) {
-    return <div className="p-8 text-center text-gray-500 animate-pulse">Checking system vitals...</div>;
+    return (
+      <div className="mx-auto max-w-5xl space-y-6" aria-label="Loading system status">
+        <div className="h-8 w-48 animate-pulse rounded bg-slate-200" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          {[1, 2, 3].map((item) => <div key={item} className="h-36 animate-pulse rounded-xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="h-56 animate-pulse rounded-xl border border-slate-100 bg-white" />
+      </div>
+    );
   }
 
   const isHealthy = health?.status === "healthy";
@@ -164,13 +173,13 @@ export function System() {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {backupsLoading ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">Loading backups...</td>
-                </tr>
+                <TableSkeleton columns={4} rows={3} />
               ) : backups?.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-6 text-center text-gray-500">No backups found. Generate a snapshot to secure data.</td>
-                </tr>
+                <EmptyTableState
+                  colSpan={4}
+                  title="No backups found"
+                  description="Generate a snapshot to secure your CRM data."
+                />
               ) : (
                 backups?.map((backup) => (
                   <tr key={backup.filename} className="hover:bg-gray-50/50">

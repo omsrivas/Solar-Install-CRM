@@ -220,7 +220,15 @@ export function ProjectDetail() {
   const updateProject = useUpdateProject();
 
   if (isLoading || !project) {
-    return <div className="p-8 text-center text-gray-500 animate-pulse">Loading project details...</div>;
+    return (
+      <div className="space-y-6" aria-label="Loading project details">
+        <div className="h-8 w-56 animate-pulse rounded bg-slate-200" />
+        <div className="grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map((item) => <div key={item} className="h-28 animate-pulse rounded-xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="h-64 animate-pulse rounded-xl border border-slate-100 bg-white" />
+      </div>
+    );
   }
 
   const handleStageChange = (newStage: string) => {

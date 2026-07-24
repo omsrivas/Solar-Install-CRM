@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useListServiceCalls, useGetServiceSummary,
   useCreateServiceCall, useUpdateServiceCall,
@@ -8,6 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Search, AlertCircle, CheckCircle2, Clock, Wrench, Phone, MapPin, Plus, X, User, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 // ─── Log Complaint Modal ───────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ function LogComplaintModal({
           <h2 className="text-lg font-bold text-gray-900">Log New Complaint</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-md"><X className="h-5 w-5 text-gray-500" /></button>
         </div>
-        <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+        <div className="p-6 space-y-5 overflow-y-auto max-h-[70vh]">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Customer Name *</label>
@@ -154,7 +155,7 @@ function UpdateModal({
           <h2 className="text-lg font-bold text-gray-900">Update Ticket SRV-{callId.toString().padStart(4, "0")}</h2>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-md"><X className="h-5 w-5 text-gray-500" /></button>
         </div>
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Status</label>
             <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white" value={form.status} onChange={set("status")}>
@@ -210,6 +211,8 @@ export function Service() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [showLogModal, setShowLogModal] = useState(false);
   const [updateTarget, setUpdateTarget] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -272,6 +275,16 @@ export function Service() {
 
   const updateTargetCall = calls?.find(c => c.id === updateTarget);
   const pendingComplaintCount = calls?.filter(c => c.status === "pending_complaint").length ?? 0;
+  const pageCount = Math.max(1, Math.ceil((calls?.length ?? 0) / pageSize));
+  const visibleCalls = calls?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   return (
     <div className="space-y-6">
@@ -334,14 +347,16 @@ export function Service() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                aria-label="Search service tickets"
                 placeholder="Search tickets..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              aria-label="Filter service tickets by status"
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -368,11 +383,24 @@ export function Service() {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {isLoading ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500 animate-pulse">Loading service tickets...</td></tr>
+                <TableSkeleton columns={6} />
               ) : calls?.length === 0 ? (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No tickets found.</td></tr>
+                <EmptyTableState
+                  colSpan={6}
+                  title="No service tickets found"
+                  description={search || statusFilter ? "Try clearing a filter or searching for another ticket." : "New customer complaints and service requests will appear here."}
+                  action={search || statusFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setStatusFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined}
+                />
               ) : (
-                calls?.map((call) => (
+                visibleCalls.map((call) => (
                   <tr key={call.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-mono text-xs font-bold text-primary mb-1">SRV-{call.id.toString().padStart(4, "0")}</div>
@@ -429,7 +457,7 @@ export function Service() {
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => setUpdateTarget(call.id)}
-                        className="text-sm font-medium text-primary hover:text-primary/80 underline decoration-primary/30 underline-offset-4"
+                        className="rounded px-2 py-1 text-sm font-medium text-primary underline decoration-primary/30 underline-offset-4 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       >
                         Update
                       </button>
@@ -440,6 +468,13 @@ export function Service() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={calls?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
 
       {/* Modals */}

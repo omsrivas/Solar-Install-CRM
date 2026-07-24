@@ -5,6 +5,7 @@ import {
   Activity as ActivityIcon, User, Briefcase, Zap, 
   IndianRupee, Package, AlertTriangle, FileText 
 } from "lucide-react";
+import { EmptyTableState } from "@/components/table-state";
 
 export function Activities() {
   const [entityFilter, setEntityFilter] = useState<string>("");
@@ -44,7 +45,8 @@ export function Activities() {
         </div>
         
         <select
-          className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white shadow-sm"
+          aria-label="Filter activity by module"
+          className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
           value={entityFilter}
           onChange={(e) => setEntityFilter(e.target.value)}
         >
@@ -69,9 +71,22 @@ export function Activities() {
             ))}
           </div>
         ) : activities?.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No activity found for the selected criteria.
-          </div>
+          <table className="w-full">
+            <EmptyTableState
+              colSpan={1}
+              title="No activity found"
+              description={entityFilter ? "Try clearing the module filter to see more activity." : "System activity will appear here as your team works in the CRM."}
+              action={entityFilter ? (
+                <button
+                  type="button"
+                  onClick={() => setEntityFilter("")}
+                  className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                >
+                  Clear filter
+                </button>
+              ) : undefined}
+            />
+          </table>
         ) : (
           <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gray-200">
             {activities?.map((activity, index) => (

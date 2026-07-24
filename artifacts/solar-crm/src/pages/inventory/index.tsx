@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListInventory,
@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 interface EditForm {
   name: string;
@@ -65,7 +66,7 @@ function EditInventoryModal({
           </button>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -212,6 +213,8 @@ function EditInventoryModal({
 
         <div className="flex gap-3 p-5 border-t border-gray-100">
           <button
+            type="button"
+            aria-label="Close edit inventory item"
             onClick={onClose}
             className="flex-1 border border-gray-300 rounded-md py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >
@@ -234,6 +237,8 @@ export function Inventory() {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [editTarget, setEditTarget] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -290,6 +295,16 @@ export function Inventory() {
   const categories = Array.from(
     new Set(inventory?.map((i) => i.category) || [])
   );
+  const pageCount = Math.max(1, Math.ceil((inventory?.length ?? 0) / pageSize));
+  const visibleInventory = inventory?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, categoryFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   return (
     <div className="space-y-6">
@@ -346,14 +361,16 @@ export function Inventory() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                aria-label="Search inventory"
                 placeholder="Search inventory..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              aria-label="Filter inventory by category"
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
@@ -383,25 +400,24 @@ export function Inventory() {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-8 text-center text-gray-500 animate-pulse"
-                  >
-                    Loading inventory...
-                  </td>
-                </tr>
+                <TableSkeleton columns={6} />
               ) : inventory?.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    No items found matching criteria.
-                  </td>
-                </tr>
+                <EmptyTableState
+                  colSpan={6}
+                  title="No inventory items found"
+                  description={search || categoryFilter ? "Try clearing a filter or searching for another item." : "Add stock items to start tracking warehouse levels."}
+                  action={search || categoryFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setCategoryFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined}
+                />
               ) : (
-                inventory?.map((item) => {
+                visibleInventory.map((item) => {
                   const stockPct = item.maxStockLevel
                     ? (Number(item.currentStock) /
                         Number(item.maxStockLevel)) *
@@ -460,7 +476,7 @@ export function Inventory() {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => setEditTarget(item.id)}
-                          className="text-sm font-medium text-gray-500 hover:text-gray-900 underline decoration-gray-300 underline-offset-4"
+                           className="rounded px-2 py-1 text-sm font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                         >
                           Edit
                         </button>
@@ -472,6 +488,13 @@ export function Inventory() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={inventory?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
 
       {editTarget !== null && editTargetItem && (

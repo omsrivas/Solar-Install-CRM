@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListUsers,
@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 type Role = "admin" | "sales" | "finance" | "warehouse" | "engineer";
 
@@ -577,6 +578,8 @@ export function Users() {
     id: number; name: string; email: string; role: string;
   } | null>(null);
   const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -587,6 +590,16 @@ export function Users() {
     search: search || undefined,
     role: roleFilter || undefined,
   });
+  const pageCount = Math.max(1, Math.ceil((users?.length ?? 0) / pageSize));
+  const visibleUsers = users?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, roleFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const updateUser = useUpdateUser({
     mutation: {
@@ -677,14 +690,16 @@ export function Users() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                aria-label="Search users"
                 placeholder="Search users..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              aria-label="Filter users by role"
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
             >
@@ -711,19 +726,24 @@ export function Users() {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500 animate-pulse">
-                    Loading users...
-                  </td>
-                </tr>
+                <TableSkeleton columns={5} />
               ) : users?.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                    No users found matching criteria.
-                  </td>
-                </tr>
+                <EmptyTableState
+                  colSpan={5}
+                  title="No users found"
+                  description={search || roleFilter ? "Try clearing a filter or searching for another team member." : "Add a user to start managing system access."}
+                  action={search || roleFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setRoleFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined}
+                />
               ) : (
-                users?.map((user) => (
+                visibleUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50/80 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -770,7 +790,8 @@ export function Users() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                           aria-label={user.isActive ? `Deactivate ${user.name}` : `Activate ${user.name}`}
+                           className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-amber-50 hover:text-amber-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
                           title={user.isActive ? "Deactivate user" : "Activate user"}
                           disabled={togglingIds.has(user.id)}
                           onClick={() => {
@@ -810,7 +831,7 @@ export function Users() {
                         </button>
                         <button
                           onClick={() => setEditTarget(user.id)}
-                          className="text-sm font-medium text-gray-500 hover:text-gray-900 underline decoration-gray-300 underline-offset-4 px-2 py-1"
+                           className="rounded px-2 py-1 text-sm font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                         >
                           Edit
                         </button>
@@ -838,6 +859,13 @@ export function Users() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={users?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
 
       {showCreateModal && (

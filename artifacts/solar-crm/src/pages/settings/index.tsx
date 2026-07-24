@@ -109,7 +109,12 @@ export function Settings() {
         {/* Settings Content */}
         <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500 animate-pulse">Loading settings...</div>
+            <div className="space-y-5 p-6" aria-label="Loading settings">
+              <div className="h-6 w-48 animate-pulse rounded bg-slate-200" />
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((item) => <div key={item} className="h-10 animate-pulse rounded-md bg-slate-100" />)}
+              </div>
+            </div>
           ) : (
             <div className="p-6">
               {activeTab === "general" && (
@@ -123,7 +128,7 @@ export function Settings() {
                         type="text" 
                         value={getSetting("company_name", "Hitech Electropower")}
                         onChange={(e) => handleUpdate("company_name", e.target.value)}
-                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                         className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                       />
                     </div>
                     <div>

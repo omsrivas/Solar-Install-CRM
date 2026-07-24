@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useListProjects, useGetProjectsSummary } from "@workspace/api-client-react";
 import { Search, Filter, Phone, MapPin, ChevronRight, Zap } from "lucide-react";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 const PROJECT_STAGES = [
   { id: "order_punched",     label: "Order Punched",      color: "bg-blue-50 text-blue-700" },
@@ -20,12 +21,24 @@ const PROJECT_STAGES = [
 export function Projects() {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   const { data: summary } = useGetProjectsSummary();
   const { data: projects, isLoading } = useListProjects({
     search: search || undefined,
     stage: stageFilter || undefined,
   });
+  const pageCount = Math.max(1, Math.ceil((projects?.length ?? 0) / pageSize));
+  const visibleProjects = projects?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, stageFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   return (
     <div className="space-y-6">
@@ -58,8 +71,9 @@ export function Projects() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
+              aria-label="Search projects"
               placeholder="Search customer, phone, or city…"
-              className="h-9 w-full pl-9 pr-4 border border-input bg-white rounded-md text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -68,7 +82,8 @@ export function Projects() {
           <div className="flex w-full sm:w-auto items-center gap-2">
             <Filter className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <select
-              className="h-9 w-full sm:w-auto border border-input bg-white rounded-md px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              aria-label="Filter projects by stage"
+              className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 sm:w-auto"
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value)}
             >
@@ -92,19 +107,24 @@ export function Projects() {
             </thead>
             <tbody className="divide-y divide-gray-50 text-sm">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground animate-pulse">
-                    Loading projects…
-                  </td>
-                </tr>
+                <TableSkeleton columns={6} />
               ) : projects?.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
-                    No projects found.
-                  </td>
-                </tr>
+                <EmptyTableState
+                  colSpan={6}
+                  title="No projects found"
+                  description={search || stageFilter ? "Try clearing a filter or searching for a different customer." : "Projects created from won leads will appear here."}
+                  action={search || stageFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setStageFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined}
+                />
               ) : (
-                projects?.map((project) => (
+                visibleProjects.map((project) => (
                   <tr key={project.id} className="hover:bg-gray-50/60 transition-colors">
                     <td className="px-6 py-4">
                       <div className="font-bold text-gray-500 text-xs">PRJ-{project.id.toString().padStart(4, "0")}</div>
@@ -160,7 +180,8 @@ export function Projects() {
                     <td className="px-6 py-4 text-right">
                       <Link
                         href={`/projects/${project.id}`}
-                        className="inline-flex items-center justify-center gap-1.5 h-8 px-3 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors shadow-sm"
+                        aria-label={`Manage project for ${project.customerName}`}
+                        className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       >
                         Manage
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -172,6 +193,13 @@ export function Projects() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={projects?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

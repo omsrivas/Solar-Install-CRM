@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useListLeads, useGetLeadsSummary } from "@workspace/api-client-react";
 import { Search, Plus, Filter, Phone, MapPin, Calendar, Clock, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 const STAGE_COLORS: Record<string, string> = {
   lead: "bg-gray-100 text-gray-600",
@@ -17,13 +18,25 @@ const STAGE_COLORS: Record<string, string> = {
 export function Leads() {
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("");
+  const [page, setPage] = useState(1);
   const [, setLocation] = useLocation();
+  const pageSize = 8;
 
   const { data: summary } = useGetLeadsSummary();
   const { data: leads, isLoading } = useListLeads({
     search: search || undefined,
     stage: stageFilter || undefined,
   });
+  const pageCount = Math.max(1, Math.ceil((leads?.length ?? 0) / pageSize));
+  const visibleLeads = leads?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, stageFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   return (
     <div className="space-y-6">
@@ -70,8 +83,9 @@ export function Leads() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             <input
               type="text"
+              aria-label="Search leads"
               placeholder="Search name, phone, or city…"
-              className="h-9 w-full pl-9 pr-4 border border-input bg-white rounded-md text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -80,7 +94,8 @@ export function Leads() {
           <div className="flex w-full sm:w-auto items-center gap-2">
             <Filter className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <select
-              className="h-9 w-full sm:w-auto border border-input bg-white rounded-md px-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              aria-label="Filter leads by stage"
+              className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 sm:w-auto"
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value)}
             >
@@ -109,22 +124,24 @@ export function Leads() {
             </thead>
             <tbody className="divide-y divide-gray-50 text-sm">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center">
-                    <div className="animate-pulse flex flex-col items-center gap-2">
-                      <div className="h-3 w-24 bg-gray-200 rounded" />
-                      <div className="h-3 w-32 bg-gray-200 rounded" />
-                    </div>
-                  </td>
-                </tr>
+                <TableSkeleton columns={6} />
               ) : leads?.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground text-sm">
-                    No leads found matching your criteria.
-                  </td>
-                </tr>
+                <EmptyTableState
+                  colSpan={6}
+                  title="No leads found"
+                  description={search || stageFilter ? "Try clearing a filter or searching for a different customer." : "New leads will appear here as they enter your pipeline."}
+                  action={search || stageFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setStageFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined}
+                />
               ) : (
-                leads?.map((lead) => (
+                visibleLeads.map((lead) => (
                   <tr key={lead.id} className="hover:bg-gray-50/60 transition-colors group">
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{lead.customerName}</div>
@@ -179,7 +196,8 @@ export function Leads() {
                     <td className="px-6 py-4 text-right">
                       <Link
                         href={`/leads/${lead.id}`}
-                        className="inline-flex items-center justify-center h-8 w-8 hover:bg-gray-100 rounded-md text-gray-400 hover:text-primary transition-colors"
+                        aria-label={`View ${lead.customerName}`}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       >
                         <ChevronRight className="h-4 w-4" />
                       </Link>
@@ -190,6 +208,13 @@ export function Leads() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={leads?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

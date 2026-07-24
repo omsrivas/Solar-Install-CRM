@@ -44,15 +44,24 @@ export function NewLead() {
     followUpDate: "",
     remarks: "",
   });
+  const [errors, setErrors] = useState<Partial<Record<"customerName" | "mobileNumber" | "email", string>>>({});
 
   const set = (field: keyof LeadForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       setForm(f => ({ ...f, [field]: e.target.value }));
+      if (field in errors) setErrors(current => ({ ...current, [field]: undefined }));
+    };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.customerName.trim() || !form.mobileNumber.trim()) {
-      toast({ title: "Customer name and mobile number are required", variant: "destructive" });
+    const nextErrors: Partial<Record<"customerName" | "mobileNumber" | "email", string>> = {};
+    if (!form.customerName.trim()) nextErrors.customerName = "Enter the customer name.";
+    if (!form.mobileNumber.trim()) nextErrors.mobileNumber = "Enter a mobile number.";
+    else if (!/^[+()\d\s-]{7,}$/.test(form.mobileNumber.trim())) nextErrors.mobileNumber = "Enter a valid mobile number.";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) nextErrors.email = "Enter a valid email address.";
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      toast({ title: "Review the highlighted fields", variant: "destructive" });
       return;
     }
     createLead.mutate({
@@ -119,14 +128,20 @@ export function NewLead() {
                   Customer Name <span className="text-destructive">*</span>
                 </label>
                 <input type="text" required value={form.customerName} onChange={set("customerName")}
-                  placeholder="Full name" className={fieldInput} />
+                  aria-invalid={Boolean(errors.customerName)}
+                  aria-describedby={errors.customerName ? "customer-name-error" : undefined}
+                  placeholder="Full name" className={`${fieldInput} ${errors.customerName ? "border-red-400 ring-2 ring-red-100" : ""}`} />
+                {errors.customerName && <p id="customer-name-error" className="mt-1.5 text-xs text-red-600">{errors.customerName}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Mobile Number <span className="text-destructive">*</span>
                 </label>
                 <input type="tel" required value={form.mobileNumber} onChange={set("mobileNumber")}
-                  placeholder="Primary phone" className={fieldInput} />
+                  aria-invalid={Boolean(errors.mobileNumber)}
+                  aria-describedby={errors.mobileNumber ? "mobile-number-error" : undefined}
+                  placeholder="Primary phone" className={`${fieldInput} ${errors.mobileNumber ? "border-red-400 ring-2 ring-red-100" : ""}`} />
+                {errors.mobileNumber && <p id="mobile-number-error" className="mt-1.5 text-xs text-red-600">{errors.mobileNumber}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Alternate Number</label>
@@ -136,7 +151,10 @@ export function NewLead() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
                 <input type="email" value={form.email} onChange={set("email")}
-                  placeholder="customer@example.com" className={fieldInput} />
+                  aria-invalid={Boolean(errors.email)}
+                  aria-describedby={errors.email ? "email-error" : undefined}
+                  placeholder="customer@example.com" className={`${fieldInput} ${errors.email ? "border-red-400 ring-2 ring-red-100" : ""}`} />
+                {errors.email && <p id="email-error" className="mt-1.5 text-xs text-red-600">{errors.email}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>

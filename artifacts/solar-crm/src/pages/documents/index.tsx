@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListDocuments,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getAuthToken } from "../../lib/tokenStore";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -143,7 +144,9 @@ function UploadModal({ file, onClose, onSuccess }: UploadModalProps) {
               value={docType}
               onChange={(e) => setDocType(e.target.value)}
               disabled={uploading}
-              className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              aria-invalid={Boolean(error && !docType)}
+              aria-describedby={error && !docType ? "document-type-error" : undefined}
+              className={`w-full rounded-md border bg-white px-3 py-2 text-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 ${error && !docType ? "border-red-400 ring-2 ring-red-100" : "border-input"}`}
             >
               <option value="">Select type…</option>
               {DOCUMENT_TYPES.map((t) => (
@@ -169,7 +172,7 @@ function UploadModal({ file, onClose, onSuccess }: UploadModalProps) {
 
           {/* Error */}
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <p id="document-type-error" role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
               {error}
             </p>
           )}
@@ -216,6 +219,8 @@ export function Documents() {
   const [pendingFile,  setPendingFile]  = useState<File | null>(null);
   const [deletingId,   setDeletingId]   = useState<number | null>(null);
   const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient  = useQueryClient();
   const { toast }    = useToast();
@@ -294,6 +299,16 @@ export function Documents() {
       d.originalName.toLowerCase().includes(search.toLowerCase()) ||
       d.fileName.toLowerCase().includes(search.toLowerCase()),
   );
+  const pageCount = Math.max(1, Math.ceil((filteredDocs?.length ?? 0) / pageSize));
+  const visibleDocs = filteredDocs?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, typeFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -383,14 +398,16 @@ export function Documents() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                aria-label="Search documents"
                 placeholder="Search files..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              aria-label="Filter documents by type"
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
             >
@@ -418,28 +435,32 @@ export function Documents() {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500 animate-pulse">
-                    Loading documents…
-                  </td>
-                </tr>
+                <TableSkeleton columns={7} />
               ) : filteredDocs?.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3 text-gray-400">
-                      <Folder className="h-10 w-10 opacity-40" />
-                      <p className="text-sm">No documents found.</p>
-                      <button
-                        onClick={handleUploadClick}
-                        className="mt-1 text-primary text-sm font-medium hover:underline"
-                      >
-                        Upload your first document
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                <EmptyTableState
+                  colSpan={7}
+                  title="No documents found"
+                  description={search || typeFilter ? "Try clearing a filter or searching for another file." : "Upload a document to keep project files in one place."}
+                  action={search || typeFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setTypeFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleUploadClick}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Upload your first document
+                    </button>
+                  )}
+                />
               ) : (
-                filteredDocs?.map((doc) => (
+                visibleDocs.map((doc) => (
                   <tr
                     key={doc.id}
                     className="hover:bg-gray-50/80 transition-colors group"
@@ -494,6 +515,7 @@ export function Documents() {
                           disabled={downloadingIds.has(doc.id)}
                           className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Download"
+                          aria-label={`Download ${doc.originalName}`}
                         >
                           {downloadingIds.has(doc.id) ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -505,6 +527,7 @@ export function Documents() {
                           onClick={() => handleDeleteClick(doc.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                           title="Delete"
+                          aria-label={`Delete ${doc.originalName}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -516,6 +539,13 @@ export function Documents() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={filteredDocs?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
     </div>
   );

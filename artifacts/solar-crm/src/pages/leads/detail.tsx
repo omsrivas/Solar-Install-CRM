@@ -151,7 +151,15 @@ export function LeadDetail() {
   const updateFollowup = useUpdateLeadFollowup();
 
   if (isLoading || !lead) {
-    return <div className="p-8 text-center text-gray-500 animate-pulse">Loading lead details...</div>;
+    return (
+      <div className="space-y-6" aria-label="Loading lead details">
+        <div className="h-8 w-48 animate-pulse rounded bg-slate-200" />
+        <div className="grid gap-4 md:grid-cols-2">
+          {[1, 2, 3, 4].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl border border-slate-100 bg-white" />)}
+        </div>
+        <div className="h-56 animate-pulse rounded-xl border border-slate-100 bg-white" />
+      </div>
+    );
   }
 
   const isAdmin = user?.role === "admin";

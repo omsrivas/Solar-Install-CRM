@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { EmptyTableState, PaginationBar, TableSkeleton } from "@/components/table-state";
 
 interface EditForm {
   status: string;
@@ -68,7 +69,7 @@ function EditPaymentModal({
           </button>
         </div>
 
-        <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">
@@ -199,6 +200,8 @@ export function Finance() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [editTarget, setEditTarget] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 8;
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -233,6 +236,16 @@ export function Finance() {
       p.referenceNumber?.toLowerCase().includes(search.toLowerCase()) ||
       p.amount.toString().includes(search)
   );
+  const pageCount = Math.max(1, Math.ceil((filteredPayments?.length ?? 0) / pageSize));
+  const visiblePayments = filteredPayments?.slice((page - 1) * pageSize, page * pageSize) ?? [];
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
 
   const editTargetPayment = payments?.find((p) => p.id === editTarget);
 
@@ -351,14 +364,16 @@ export function Finance() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <input
                 type="text"
+                aria-label="Search financial transactions"
                 placeholder="Search transactions..."
-                className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                className="h-10 w-full rounded-md border border-input bg-white pl-9 pr-4 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
             <select
-              className="border border-gray-300 rounded-md py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
+              aria-label="Filter payments by status"
+              className="h-10 rounded-md border border-input bg-white px-3 text-sm shadow-sm focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
             >
@@ -384,25 +399,24 @@ export function Finance() {
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-8 text-center text-gray-500 animate-pulse"
-                  >
-                    Loading financial records...
-                  </td>
-                </tr>
+                <TableSkeleton columns={6} />
               ) : filteredPayments?.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    No transactions found matching criteria.
-                  </td>
-                </tr>
+                <EmptyTableState
+                  colSpan={6}
+                  title="No transactions found"
+                  description={search || statusFilter ? "Try clearing a filter or searching for a different transaction." : "Recorded payments will appear here."}
+                  action={search || statusFilter ? (
+                    <button
+                      type="button"
+                      onClick={() => { setSearch(""); setStatusFilter(""); }}
+                      className="text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      Clear filters
+                    </button>
+                  ) : undefined}
+                />
               ) : (
-                filteredPayments?.map((payment) => (
+                visiblePayments.map((payment) => (
                   <tr
                     key={payment.id}
                     className="hover:bg-gray-50/80 transition-colors"
@@ -419,7 +433,7 @@ export function Finance() {
                     <td className="px-6 py-4">
                       <Link
                         href={`/projects/${payment.projectId}`}
-                        className="font-medium text-primary hover:underline"
+                        className="rounded font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       >
                         PRJ-{payment.projectId.toString().padStart(4, "0")}
                       </Link>
@@ -456,7 +470,7 @@ export function Finance() {
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => setEditTarget(payment.id)}
-                        className="text-sm font-medium text-gray-500 hover:text-gray-900 underline decoration-gray-300 underline-offset-4"
+                         className="rounded px-2 py-1 text-sm font-medium text-gray-500 underline decoration-gray-300 underline-offset-4 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                       >
                         Edit
                       </button>
@@ -467,6 +481,13 @@ export function Finance() {
             </tbody>
           </table>
         </div>
+        <PaginationBar
+          page={page}
+          pageCount={pageCount}
+          total={filteredPayments?.length ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
 
       {editTarget !== null && editTargetPayment && (
