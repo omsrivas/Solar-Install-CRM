@@ -20,6 +20,7 @@ export * from "./inventory";
 export * from "./leads";
 export * from "./payments";
 export * from "./projects";
+export * from "./reports";
 export * from "./service-calls";
 export * from "./settings";
 export * from "./users";
