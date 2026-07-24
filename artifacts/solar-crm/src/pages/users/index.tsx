@@ -576,6 +576,7 @@ export function Users() {
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number; name: string; email: string; role: string;
   } | null>(null);
+  const [togglingIds, setTogglingIds] = useState<Set<number>>(new Set());
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -769,16 +770,43 @@ export function Users() {
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                          title="Toggle Status"
-                          onClick={() =>
-                            updateUser.mutate({
-                              id: user.id,
-                              data: { isActive: !user.isActive },
-                            })
-                          }
+                          className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={user.isActive ? "Deactivate user" : "Activate user"}
+                          disabled={togglingIds.has(user.id)}
+                          onClick={() => {
+                            setTogglingIds((prev) => new Set(prev).add(user.id));
+                            updateUser.mutate(
+                              { id: user.id, data: { isActive: !user.isActive } },
+                              {
+                                onSuccess: () => {
+                                  toast({
+                                    title: user.isActive
+                                      ? `${user.name} deactivated`
+                                      : `${user.name} activated`,
+                                  });
+                                },
+                                onError: () => {
+                                  toast({
+                                    title: "Failed to update user status",
+                                    variant: "destructive",
+                                  });
+                                },
+                                onSettled: () => {
+                                  setTogglingIds((prev) => {
+                                    const next = new Set(prev);
+                                    next.delete(user.id);
+                                    return next;
+                                  });
+                                },
+                              }
+                            );
+                          }}
                         >
-                          <Power className="h-4 w-4" />
+                          {togglingIds.has(user.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Power className="h-4 w-4" />
+                          )}
                         </button>
                         <button
                           onClick={() => setEditTarget(user.id)}

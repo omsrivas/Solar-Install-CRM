@@ -178,7 +178,17 @@ export function System() {
                     <td className="px-6 py-4 text-gray-500">{backup.sizeFormatted}</td>
                     <td className="px-6 py-4 text-gray-500">{format(new Date(backup.createdAt), "MMM d, yyyy HH:mm")}</td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-red-600 hover:text-red-800 font-medium text-xs uppercase tracking-wide">
+                      <button
+                        onClick={() =>
+                          toast({
+                            title: "Restore not available",
+                            description:
+                              "Restoring a backup must be done by a system administrator via the server CLI.",
+                            variant: "destructive",
+                          })
+                        }
+                        className="text-red-600 hover:text-red-800 font-medium text-xs uppercase tracking-wide"
+                      >
                         Restore
                       </button>
                     </td>

@@ -11,6 +11,7 @@ import {
   Download, Trash2, UploadCloud, Folder, X, Loader2,
 } from "lucide-react";
 import { getAuthToken } from "../../lib/tokenStore";
+import { useToast } from "@/hooks/use-toast";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -210,12 +211,14 @@ function UploadModal({ file, onClose, onSuccess }: UploadModalProps) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function Documents() {
-  const [search,     setSearch]     = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("");
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [deletingId,  setDeletingId]  = useState<number | null>(null);
+  const [search,       setSearch]       = useState("");
+  const [typeFilter,   setTypeFilter]   = useState<string>("");
+  const [pendingFile,  setPendingFile]  = useState<File | null>(null);
+  const [deletingId,   setDeletingId]   = useState<number | null>(null);
+  const [downloadingIds, setDownloadingIds] = useState<Set<number>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient  = useQueryClient();
+  const { toast }    = useToast();
 
   const { data: documents, isLoading } = useListDocuments({
     documentType: typeFilter || undefined,
@@ -225,6 +228,10 @@ export function Documents() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
+        toast({ title: "Document deleted" });
+      },
+      onError: () => {
+        toast({ title: "Failed to delete document", variant: "destructive" });
       },
     },
   });
@@ -243,6 +250,7 @@ export function Documents() {
   }
 
   async function handleDownload(id: number, originalName: string) {
+    setDownloadingIds((prev) => new Set(prev).add(id));
     try {
       const res = await authedFetch(`/api/documents/${id}/download`);
       if (!res.ok) throw new Error("Could not retrieve download link.");
@@ -256,7 +264,13 @@ export function Documents() {
       a.click();
     } catch (err) {
       console.error("Download error:", err);
-      alert("Download failed. Please try again.");
+      toast({ title: "Download failed", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setDownloadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   }
 
@@ -477,10 +491,15 @@ export function Documents() {
                       <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleDownload(doc.id, doc.originalName)}
-                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                          disabled={downloadingIds.has(doc.id)}
+                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Download"
                         >
-                          <Download className="h-4 w-4" />
+                          {downloadingIds.has(doc.id) ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
                         </button>
                         <button
                           onClick={() => handleDeleteClick(doc.id)}

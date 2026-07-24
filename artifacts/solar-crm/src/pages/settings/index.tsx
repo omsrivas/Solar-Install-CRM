@@ -34,7 +34,10 @@ export function Settings() {
         toast({ title: "Settings saved successfully" });
         setLocalSettings({});
         queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-      }
+      },
+      onError: () => {
+        toast({ title: "Failed to save settings", variant: "destructive" });
+      },
     });
   };
 

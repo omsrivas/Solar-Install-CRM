@@ -162,7 +162,10 @@ export function LeadDetail() {
       onSuccess: (updated) => {
         toast({ title: "Stage updated successfully" });
         queryClient.setQueryData(getGetLeadQueryKey(id), updated);
-      }
+      },
+      onError: () => {
+        toast({ title: "Failed to update stage", variant: "destructive" });
+      },
     });
   };
 
@@ -173,7 +176,10 @@ export function LeadDetail() {
         setNewNote("");
         toast({ title: "Note added" });
         queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}/notes`] });
-      }
+      },
+      onError: () => {
+        toast({ title: "Failed to add note", variant: "destructive" });
+      },
     });
   };
 
@@ -182,7 +188,10 @@ export function LeadDetail() {
       onSuccess: () => {
         toast({ title: "Follow-up updated" });
         queryClient.invalidateQueries({ queryKey: getGetLeadQueryKey(id) });
-      }
+      },
+      onError: () => {
+        toast({ title: "Failed to update follow-up", variant: "destructive" });
+      },
     });
   };
 

@@ -10,11 +10,13 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 import { FileText, TrendingUp, IndianRupee, Package, Users } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const COLORS = ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ef4444', '#64748b'];
 
 export function Reports() {
   const [activeTab, setActiveTab] = useState<"sales" | "finance" | "inventory">("sales");
+  const { toast } = useToast();
 
   const { data: leadsReport } = useGetLeadsReport({});
   const { data: salesReport } = useGetSalesReport({});
@@ -28,7 +30,16 @@ export function Reports() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Business Intelligence</h1>
           <p className="text-sm text-gray-500 mt-1">Analytics and performance reports</p>
         </div>
-        <button className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors flex items-center gap-2 text-sm shadow-sm">
+        <button
+          onClick={() =>
+            toast({
+              title: "Export not available",
+              description: "PDF export is not yet supported. Contact your administrator.",
+              variant: "destructive",
+            })
+          }
+          className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-md transition-colors flex items-center gap-2 text-sm shadow-sm"
+        >
           <FileText className="h-4 w-4" />
           Export PDF
         </button>
