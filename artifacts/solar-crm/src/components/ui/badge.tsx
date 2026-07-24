@@ -3,24 +3,38 @@ import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const badgeVariants = cva(
-  // @replit
-  // Whitespace-nowrap: Badges should never wrap.
-  'whitespace-nowrap inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2' +
-    ' hover-elevate ',
+  // Base — badges never wrap, always pill-shaped
+  'inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
   {
     variants: {
       variant: {
+        // Primary (amber) — default brand colour
         default:
-          // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
           'border-transparent bg-primary text-primary-foreground shadow-xs',
+        // Neutral
         secondary:
-          // @replit no hover because we use hover-elevate
           'border-transparent bg-secondary text-secondary-foreground',
+        // Destructive / error
         destructive:
-          // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
-          'border-transparent bg-destructive text-destructive-foreground shadow-xs',
-        // @replit shadow-xs" - use badge outline variable
-        outline: 'text-foreground border [border-color:var(--badge-outline)]',
+          'border-transparent bg-destructive/15 text-destructive border-destructive/20',
+        // Subtle bordered
+        outline:
+          'bg-transparent text-foreground',
+        // ── Semantic colour variants ──────────────────────────────────────
+        // Used across stage chips, status indicators, and summary pills
+        success:
+          'border-transparent bg-emerald-50 text-emerald-700 border-emerald-200/60',
+        warning:
+          'border-transparent bg-amber-50 text-amber-700 border-amber-200/60',
+        info:
+          'border-transparent bg-blue-50 text-blue-700 border-blue-200/60',
+        purple:
+          'border-transparent bg-violet-50 text-violet-700 border-violet-200/60',
+        rose:
+          'border-transparent bg-rose-50 text-rose-700 border-rose-200/60',
+        // Muted / inactive
+        muted:
+          'border-transparent bg-gray-100 text-gray-500',
       },
     },
     defaultVariants: {

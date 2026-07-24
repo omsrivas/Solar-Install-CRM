@@ -4,7 +4,13 @@ import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:translate-y-px active:shadow-none [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover-elevate active-elevate-2',
+  // Base — shared across all variants and sizes
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium' +
+  ' transition-[background-color,border-color,color,box-shadow,transform,opacity]' +
+  ' focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1' +
+  ' disabled:pointer-events-none disabled:opacity-50' +
+  ' active:scale-[0.97] active:shadow-none' +
+  ' [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -13,19 +19,21 @@ const buttonVariants = cva(
         destructive:
           'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90',
         outline:
-          'border border-input bg-background shadow-sm hover:bg-accent/10 hover:text-accent-foreground',
+          'border border-input bg-background shadow-sm hover:bg-muted hover:text-foreground',
         secondary:
-          'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80',
+          'bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/70',
         ghost:
-          'hover:bg-accent/10 hover:text-accent-foreground',
+          'hover:bg-muted hover:text-foreground',
         link:
-          'text-primary underline-offset-4 hover:underline',
+          'text-primary underline-offset-4 hover:underline p-0 h-auto shadow-none',
       },
       size: {
+        xs:      'h-7 rounded-md px-2.5 text-xs gap-1.5 [&_svg]:size-3',
+        sm:      'h-8 rounded-md px-3 text-xs',
         default: 'h-9 px-4 py-2',
-        sm: 'h-8 rounded-md px-3 text-xs',
-        lg: 'h-10 rounded-md px-8',
-        icon: 'h-9 w-9',
+        lg:      'h-11 rounded-lg px-6 text-base',
+        icon:    'h-9 w-9 rounded-lg',
+        'icon-sm': 'h-7 w-7 rounded-md [&_svg]:size-3.5',
       },
     },
     defaultVariants: {
