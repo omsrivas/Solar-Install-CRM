@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useCreateLead, useListUsers } from "@workspace/api-client-react";
-import { ArrowLeft, X } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type LeadForm = {
@@ -18,17 +18,30 @@ type LeadForm = {
   remarks: string;
 };
 
-/* Shared field classes for consistency */
+/* Shared input/select classes */
 const fieldInput =
-  "h-9 w-full border border-input bg-transparent rounded-md px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
 const fieldSelect =
-  "h-9 w-full border border-input bg-white rounded-md px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+  "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+const fieldError =
+  "border-rose-400 focus:border-rose-400 focus:ring-rose-400/20";
+
+/* Section label with left accent */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-4 flex items-center gap-2.5">
+      <span className="h-4 w-0.5 rounded-full bg-primary" />
+      <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">
+        {children}
+      </p>
+    </div>
+  );
+}
 
 export function NewLead() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const createLead = useCreateLead();
-
   const { data: salesPersons } = useListUsers({ role: "sales" });
 
   const [form, setForm] = useState<LeadForm>({
@@ -44,139 +57,194 @@ export function NewLead() {
     followUpDate: "",
     remarks: "",
   });
-  const [errors, setErrors] = useState<Partial<Record<"customerName" | "mobileNumber" | "email", string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<"customerName" | "mobileNumber" | "email", string>>
+  >({});
 
-  const set = (field: keyof LeadForm) =>
+  const set =
+    (field: keyof LeadForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      setForm(f => ({ ...f, [field]: e.target.value }));
-      if (field in errors) setErrors(current => ({ ...current, [field]: undefined }));
+      setForm((f) => ({ ...f, [field]: e.target.value }));
+      if (field in errors) setErrors((c) => ({ ...c, [field]: undefined }));
     };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Partial<Record<"customerName" | "mobileNumber" | "email", string>> = {};
-    if (!form.customerName.trim()) nextErrors.customerName = "Enter the customer name.";
-    if (!form.mobileNumber.trim()) nextErrors.mobileNumber = "Enter a mobile number.";
-    else if (!/^[+()\d\s-]{7,}$/.test(form.mobileNumber.trim())) nextErrors.mobileNumber = "Enter a valid mobile number.";
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) nextErrors.email = "Enter a valid email address.";
+    if (!form.customerName.trim())
+      nextErrors.customerName = "Enter the customer name.";
+    if (!form.mobileNumber.trim())
+      nextErrors.mobileNumber = "Enter a mobile number.";
+    else if (!/^[+()\d\s-]{7,}$/.test(form.mobileNumber.trim()))
+      nextErrors.mobileNumber = "Enter a valid mobile number.";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()))
+      nextErrors.email = "Enter a valid email address.";
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       toast({ title: "Review the highlighted fields", variant: "destructive" });
       return;
     }
-    createLead.mutate({
-      data: {
-        customerName: form.customerName.trim(),
-        mobileNumber: form.mobileNumber.trim(),
-        alternateNumber: form.alternateNumber.trim() || undefined,
-        address: form.address.trim() || undefined,
-        city: form.city.trim() || undefined,
-        email: form.email.trim() || undefined,
-        leadSource: form.leadSource || undefined,
-        stage: form.stage,
-        assignedSalesPersonId: form.assignedSalesPersonId ? Number(form.assignedSalesPersonId) : undefined,
-        followUpDate: form.followUpDate || undefined,
-        remarks: form.remarks.trim() || undefined,
-        followUpStatus: "pending",
-      }
-    }, {
-      onSuccess: (lead) => {
-        toast({ title: "Lead created successfully!" });
-        setLocation(`/leads/${lead.id}`);
+    createLead.mutate(
+      {
+        data: {
+          customerName:        form.customerName.trim(),
+          mobileNumber:        form.mobileNumber.trim(),
+          alternateNumber:     form.alternateNumber.trim() || undefined,
+          address:             form.address.trim() || undefined,
+          city:                form.city.trim() || undefined,
+          email:               form.email.trim() || undefined,
+          leadSource:          form.leadSource || undefined,
+          stage:               form.stage,
+          assignedSalesPersonId: form.assignedSalesPersonId
+            ? Number(form.assignedSalesPersonId)
+            : undefined,
+          followUpDate:        form.followUpDate || undefined,
+          remarks:             form.remarks.trim() || undefined,
+          followUpStatus:      "pending",
+        },
       },
-      onError: () => {
-        toast({ title: "Failed to create lead", variant: "destructive" });
+      {
+        onSuccess: (lead) => {
+          toast({ title: "Lead created successfully!" });
+          setLocation(`/leads/${lead.id}`);
+        },
+        onError: () =>
+          toast({ title: "Failed to create lead", variant: "destructive" }),
       }
-    });
+    );
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-12">
-      {/* Back */}
+    <div className="mx-auto max-w-2xl space-y-6 pb-12">
+      {/* Back nav */}
       <button
         onClick={() => setLocation("/leads")}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Leads
       </button>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">New Lead</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Add a potential customer to the pipeline</p>
-          </div>
-          <button
-            onClick={() => setLocation("/leads")}
-            className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"
-          >
-            <X className="h-4 w-4 text-gray-500" />
-          </button>
+      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
+        {/* Form header */}
+        <div className="border-b border-gray-100 bg-gray-50/60 px-6 py-5">
+          <h1 className="font-heading text-lg font-bold text-gray-900">New Lead</h1>
+          <p className="mt-0.5 text-sm text-gray-500">Add a potential customer to the pipeline</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Customer Information */}
-          <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-4">
-              Customer Information
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Customer Name <span className="text-destructive">*</span>
+        <form onSubmit={handleSubmit} className="divide-y divide-gray-100">
+          {/* ── Customer Information ─────────────────────────────────────────── */}
+          <div className="px-6 py-6">
+            <SectionLabel>Customer Information</SectionLabel>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+              {/* Customer Name – full width */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">
+                  Customer Name <span className="text-rose-500">*</span>
                 </label>
-                <input type="text" required value={form.customerName} onChange={set("customerName")}
+                <input
+                  type="text"
+                  required
+                  value={form.customerName}
+                  onChange={set("customerName")}
                   aria-invalid={Boolean(errors.customerName)}
                   aria-describedby={errors.customerName ? "customer-name-error" : undefined}
-                  placeholder="Full name" className={`${fieldInput} ${errors.customerName ? "border-red-400 ring-2 ring-red-100" : ""}`} />
-                {errors.customerName && <p id="customer-name-error" className="mt-1.5 text-xs text-red-600">{errors.customerName}</p>}
+                  placeholder="Full name"
+                  className={`${fieldInput} ${errors.customerName ? fieldError : ""}`}
+                />
+                {errors.customerName && (
+                  <p id="customer-name-error" className="text-xs text-rose-600">
+                    {errors.customerName}
+                  </p>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Mobile Number <span className="text-destructive">*</span>
+
+              {/* Mobile */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">
+                  Mobile Number <span className="text-rose-500">*</span>
                 </label>
-                <input type="tel" required value={form.mobileNumber} onChange={set("mobileNumber")}
+                <input
+                  type="tel"
+                  required
+                  value={form.mobileNumber}
+                  onChange={set("mobileNumber")}
                   aria-invalid={Boolean(errors.mobileNumber)}
                   aria-describedby={errors.mobileNumber ? "mobile-number-error" : undefined}
-                  placeholder="Primary phone" className={`${fieldInput} ${errors.mobileNumber ? "border-red-400 ring-2 ring-red-100" : ""}`} />
-                {errors.mobileNumber && <p id="mobile-number-error" className="mt-1.5 text-xs text-red-600">{errors.mobileNumber}</p>}
+                  placeholder="Primary phone"
+                  className={`${fieldInput} ${errors.mobileNumber ? fieldError : ""}`}
+                />
+                {errors.mobileNumber && (
+                  <p id="mobile-number-error" className="text-xs text-rose-600">
+                    {errors.mobileNumber}
+                  </p>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Alternate Number</label>
-                <input type="tel" value={form.alternateNumber} onChange={set("alternateNumber")}
-                  placeholder="Secondary phone" className={fieldInput} />
+
+              {/* Alternate */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Alternate Number</label>
+                <input
+                  type="tel"
+                  value={form.alternateNumber}
+                  onChange={set("alternateNumber")}
+                  placeholder="Secondary phone"
+                  className={fieldInput}
+                />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                <input type="email" value={form.email} onChange={set("email")}
+
+              {/* Email */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={set("email")}
                   aria-invalid={Boolean(errors.email)}
                   aria-describedby={errors.email ? "email-error" : undefined}
-                  placeholder="customer@example.com" className={`${fieldInput} ${errors.email ? "border-red-400 ring-2 ring-red-100" : ""}`} />
-                {errors.email && <p id="email-error" className="mt-1.5 text-xs text-red-600">{errors.email}</p>}
+                  placeholder="customer@example.com"
+                  className={`${fieldInput} ${errors.email ? fieldError : ""}`}
+                />
+                {errors.email && (
+                  <p id="email-error" className="text-xs text-rose-600">
+                    {errors.email}
+                  </p>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
-                <input type="text" value={form.city} onChange={set("city")}
-                  placeholder="City" className={fieldInput} />
+
+              {/* City */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">City</label>
+                <input
+                  type="text"
+                  value={form.city}
+                  onChange={set("city")}
+                  placeholder="City"
+                  className={fieldInput}
+                />
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
-                <input type="text" value={form.address} onChange={set("address")}
-                  placeholder="Full address" className={fieldInput} />
+
+              {/* Address – full width */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Address</label>
+                <input
+                  type="text"
+                  value={form.address}
+                  onChange={set("address")}
+                  placeholder="Full address"
+                  className={fieldInput}
+                />
               </div>
             </div>
           </div>
 
-          {/* Lead Details */}
-          <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-4">
-              Lead Details
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Lead Source</label>
+          {/* ── Lead Details ──────────────────────────────────────────────────── */}
+          <div className="px-6 py-6">
+            <SectionLabel>Lead Details</SectionLabel>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+              {/* Source */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Lead Source</label>
                 <select value={form.leadSource} onChange={set("leadSource")} className={fieldSelect}>
                   <option value="">Select source</option>
                   <option value="referral">Referral</option>
@@ -187,8 +255,10 @@ export function NewLead() {
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Initial Stage</label>
+
+              {/* Initial stage */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Initial Stage</label>
                 <select value={form.stage} onChange={set("stage")} className={fieldSelect}>
                   <option value="lead">New Lead</option>
                   <option value="tele_calling">Tele Calling</option>
@@ -197,46 +267,64 @@ export function NewLead() {
                   <option value="negotiation">Negotiation</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Assign Sales Person</label>
-                <select value={form.assignedSalesPersonId} onChange={set("assignedSalesPersonId")} className={fieldSelect}>
+
+              {/* Sales person */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Assign Sales Person</label>
+                <select
+                  value={form.assignedSalesPersonId}
+                  onChange={set("assignedSalesPersonId")}
+                  className={fieldSelect}
+                >
                   <option value="">Unassigned</option>
-                  {salesPersons?.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                  {salesPersons?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Follow-up Date</label>
-                <input type="date" value={form.followUpDate} onChange={set("followUpDate")} className={fieldInput} />
+
+              {/* Follow-up date */}
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Follow-up Date</label>
+                <input
+                  type="date"
+                  value={form.followUpDate}
+                  onChange={set("followUpDate")}
+                  className={fieldInput}
+                />
               </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Remarks</label>
+
+              {/* Remarks – full width */}
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Remarks</label>
                 <textarea
                   value={form.remarks}
                   onChange={set("remarks")}
                   placeholder="Any notes about this lead…"
                   rows={3}
-                  className="w-full border border-input bg-transparent rounded-md px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                  className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-2">
+          {/* ── Actions ────────────────────────────────────────────────────────── */}
+          <div className="flex items-center justify-end gap-3 bg-gray-50/60 px-6 py-4">
             <button
               type="button"
               onClick={() => setLocation("/leads")}
-              className="inline-flex items-center justify-center h-9 px-4 border border-input rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={createLead.isPending}
-              className="inline-flex items-center justify-center h-9 px-5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 shadow-sm"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-primary/90 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
             >
+              <Plus className="h-4 w-4" />
               {createLead.isPending ? "Creating…" : "Create Lead"}
             </button>
           </div>

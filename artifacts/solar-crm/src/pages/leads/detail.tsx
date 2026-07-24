@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRoute, Link } from "wouter";
-import { 
-  useGetLead, getGetLeadQueryKey, 
+import {
+  useGetLead, getGetLeadQueryKey,
   useUpdateLead, useConvertLead,
   useListLeadNotes, getListLeadNotesQueryKey, useCreateLeadNote,
   useGetLeadTimeline, getGetLeadTimelineQueryKey, useUpdateLeadFollowup,
@@ -9,23 +9,30 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { 
-  ArrowLeft, Phone, MapPin, Mail, User, Briefcase, 
-  CalendarClock, Save, CheckCircle2, MessageSquare,
-  Activity as ActivityIcon, X, Lock
+import {
+  ArrowLeft, Phone, MapPin, Mail, User, Briefcase,
+  CalendarClock, CheckCircle2, MessageSquare,
+  Activity as ActivityIcon, X, Lock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STAGES = [
-  { id: "lead", label: "New Lead" },
-  { id: "tele_calling", label: "Tele Calling" },
-  { id: "site_visit", label: "Site Visit" },
+  { id: "lead",           label: "New Lead" },
+  { id: "tele_calling",   label: "Tele Calling" },
+  { id: "site_visit",     label: "Site Visit" },
   { id: "quotation_sent", label: "Quotation Sent" },
-  { id: "negotiation", label: "Negotiation" },
-  { id: "order_owned", label: "Order Won" },
+  { id: "negotiation",    label: "Negotiation" },
+  { id: "order_owned",    label: "Order Won" },
 ];
 
-// ─── Convert Modal (Admin only) ───────────────────────────────────────────────
+// ─── Shared form input classes ─────────────────────────────────────────────────
+
+const inputCls =
+  "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-sm transition-colors placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+const selectCls =
+  "h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-sm transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20";
+
+// ─── Convert Modal ────────────────────────────────────────────────────────────
 
 type ConvertForm = {
   systemCapacityKw: string;
@@ -54,41 +61,70 @@ function ConvertModal({
     assignedEngineerId: "",
   });
 
-  const set = (field: keyof ConvertForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-    setForm(f => ({ ...f, [field]: e.target.value }));
+  const set =
+    (field: keyof ConvertForm) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setForm((f) => ({ ...f, [field]: e.target.value }));
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        {/* Modal header */}
+        <div className="flex items-start justify-between border-b border-gray-100 p-5">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Punch Order</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Confirm advance payment to create project</p>
+            <h2 className="font-heading text-lg font-bold text-gray-900">Punch Order</h2>
+            <p className="mt-0.5 text-xs text-gray-500">Confirm advance payment to create project</p>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-md"><X className="h-5 w-5 text-gray-500" /></button>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 transition-colors hover:bg-gray-100"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4 text-gray-500" />
+          </button>
         </div>
-        <div className="p-5 space-y-4">
+
+        {/* Modal body */}
+        <div className="space-y-5 p-5">
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">System Capacity (kW)</label>
-              <input type="number" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" value={form.systemCapacityKw} onChange={set("systemCapacityKw")} placeholder="e.g. 5" />
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-gray-600">System Capacity (kW)</label>
+              <input
+                type="number"
+                className={inputCls}
+                value={form.systemCapacityKw}
+                onChange={set("systemCapacityKw")}
+                placeholder="e.g. 5"
+              />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Total Project Value (₹)</label>
-              <input type="number" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" value={form.totalAmount} onChange={set("totalAmount")} placeholder="e.g. 250000" />
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-gray-600">Total Project Value (₹)</label>
+              <input
+                type="number"
+                className={inputCls}
+                value={form.totalAmount}
+                onChange={set("totalAmount")}
+                placeholder="e.g. 250000"
+              />
             </div>
           </div>
 
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Advance Payment</p>
+          <div className="space-y-3 rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-gray-500">Advance Payment</p>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Amount (₹) *</label>
-                <input type="number" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" value={form.advancePaymentAmount} onChange={set("advancePaymentAmount")} placeholder="e.g. 50000" />
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-600">Amount (₹) *</label>
+                <input
+                  type="number"
+                  className={inputCls}
+                  value={form.advancePaymentAmount}
+                  onChange={set("advancePaymentAmount")}
+                  placeholder="e.g. 50000"
+                />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Payment Mode</label>
-                <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white" value={form.advancePaymentMode} onChange={set("advancePaymentMode")}>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-600">Payment Mode</label>
+                <select className={selectCls} value={form.advancePaymentMode} onChange={set("advancePaymentMode")}>
                   <option value="Cash">Cash</option>
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Cheque">Cheque</option>
@@ -98,25 +134,47 @@ function ConvertModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1">Assign Engineer</label>
-            <select className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white" value={form.assignedEngineerId} onChange={set("assignedEngineerId")}>
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-600">Assign Engineer</label>
+            <select className={selectCls} value={form.assignedEngineerId} onChange={set("assignedEngineerId")}>
               <option value="">Unassigned</option>
-              {engineers.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              {engineers.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
-        <div className="flex gap-3 p-5 border-t border-gray-100">
-          <button onClick={onClose} className="flex-1 border border-gray-300 rounded-md py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+
+        {/* Modal footer */}
+        <div className="flex gap-3 border-t border-gray-100 p-5">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Cancel
+          </button>
           <button
             disabled={!form.advancePaymentAmount || isPending}
             onClick={() => onSubmit(form)}
-            className="flex-1 bg-primary text-primary-foreground rounded-md py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isPending ? "Creating..." : "Punch Order"}
+            {isPending ? "Creating…" : "Punch Order"}
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Info field ───────────────────────────────────────────────────────────────
+
+function InfoField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+      <div className="text-sm text-gray-800">{children}</div>
     </div>
   );
 }
@@ -133,37 +191,46 @@ export function LeadDetail() {
   const [showConvertModal, setShowConvertModal] = useState(false);
 
   const { data: user } = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
-  const { data: lead, isLoading } = useGetLead(id, { 
-    query: { enabled: !!id, queryKey: getGetLeadQueryKey(id) } 
+  const { data: lead, isLoading } = useGetLead(id, {
+    query: { enabled: !!id, queryKey: getGetLeadQueryKey(id) },
   });
   const { data: notes } = useListLeadNotes(id, {
-    query: { enabled: !!id, queryKey: getListLeadNotesQueryKey(id) }
+    query: { enabled: !!id, queryKey: getListLeadNotesQueryKey(id) },
   });
   const { data: timeline } = useGetLeadTimeline(id, {
-    query: { enabled: !!id, queryKey: getGetLeadTimelineQueryKey(id) }
+    query: { enabled: !!id, queryKey: getGetLeadTimelineQueryKey(id) },
   });
   const { data: engineerList } = useListUsers({ role: "engineer" });
   const engineers = engineerList ?? [];
 
-  const updateLead = useUpdateLead();
-  const convertLead = useConvertLead();
-  const createNote = useCreateLeadNote();
+  const updateLead   = useUpdateLead();
+  const convertLead  = useConvertLead();
+  const createNote   = useCreateLeadNote();
   const updateFollowup = useUpdateLeadFollowup();
 
+  // ── Loading skeleton ────────────────────────────────────────────────────────
   if (isLoading || !lead) {
     return (
-      <div className="space-y-6" aria-label="Loading lead details">
-        <div className="h-8 w-48 animate-pulse rounded bg-slate-200" />
-        <div className="grid gap-4 md:grid-cols-2">
-          {[1, 2, 3, 4].map((item) => <div key={item} className="h-24 animate-pulse rounded-xl border border-slate-100 bg-white" />)}
+      <div className="max-w-6xl mx-auto space-y-6 animate-pulse" aria-label="Loading lead details">
+        <div className="h-5 w-36 rounded-lg bg-gray-200" />
+        <div className="h-9 w-64 rounded-lg bg-gray-200" />
+        <div className="flex flex-col gap-5 lg:flex-row">
+          <div className="flex-1 space-y-5">
+            <div className="h-52 rounded-xl border border-gray-100 bg-white" />
+            <div className="h-40 rounded-xl border border-gray-100 bg-white" />
+          </div>
+          <div className="w-full lg:w-80">
+            <div className="h-64 rounded-xl border border-gray-100 bg-white" />
+          </div>
         </div>
-        <div className="h-56 animate-pulse rounded-xl border border-slate-100 bg-white" />
       </div>
     );
   }
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin   = user?.role === "admin";
   const canConvert = lead.stage === "order_owned" && !lead.convertedProjectId;
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
 
   const handleStageChange = (newStage: string) => {
     updateLead.mutate({ id, data: { stage: newStage } }, {
@@ -171,9 +238,7 @@ export function LeadDetail() {
         toast({ title: "Stage updated successfully" });
         queryClient.setQueryData(getGetLeadQueryKey(id), updated);
       },
-      onError: () => {
-        toast({ title: "Failed to update stage", variant: "destructive" });
-      },
+      onError: () => toast({ title: "Failed to update stage", variant: "destructive" }),
     });
   };
 
@@ -185,9 +250,7 @@ export function LeadDetail() {
         toast({ title: "Note added" });
         queryClient.invalidateQueries({ queryKey: [`/api/leads/${id}/notes`] });
       },
-      onError: () => {
-        toast({ title: "Failed to add note", variant: "destructive" });
-      },
+      onError: () => toast({ title: "Failed to add note", variant: "destructive" }),
     });
   };
 
@@ -197,9 +260,7 @@ export function LeadDetail() {
         toast({ title: "Follow-up updated" });
         queryClient.invalidateQueries({ queryKey: getGetLeadQueryKey(id) });
       },
-      onError: () => {
-        toast({ title: "Failed to update follow-up", variant: "destructive" });
-      },
+      onError: () => toast({ title: "Failed to update follow-up", variant: "destructive" }),
     });
   };
 
@@ -207,12 +268,12 @@ export function LeadDetail() {
     convertLead.mutate({
       id,
       data: {
-        systemCapacityKw: form.systemCapacityKw ? Number(form.systemCapacityKw) : undefined,
-        totalAmount: form.totalAmount ? Number(form.totalAmount) : undefined,
-        assignedEngineerId: form.assignedEngineerId ? Number(form.assignedEngineerId) : undefined,
-        advancePaymentAmount: form.advancePaymentAmount ? Number(form.advancePaymentAmount) : undefined,
-        advancePaymentMode: form.advancePaymentMode || undefined,
-      }
+        systemCapacityKw:      form.systemCapacityKw ? Number(form.systemCapacityKw) : undefined,
+        totalAmount:           form.totalAmount ? Number(form.totalAmount) : undefined,
+        assignedEngineerId:    form.assignedEngineerId ? Number(form.assignedEngineerId) : undefined,
+        advancePaymentAmount:  form.advancePaymentAmount ? Number(form.advancePaymentAmount) : undefined,
+        advancePaymentMode:    form.advancePaymentMode || undefined,
+      },
     }, {
       onSuccess: () => {
         toast({ title: "Order punched — project created!" });
@@ -222,190 +283,259 @@ export function LeadDetail() {
       onError: (err: unknown) => {
         const msg = (err as { message?: string })?.message ?? "Conversion failed";
         toast({ title: msg, variant: "destructive" });
-      }
+      },
     });
   };
 
+  const currentStageIdx = STAGES.findIndex((s) => s.id === lead.stage);
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      <div className="flex items-center gap-4 text-sm mb-4">
-        <Link href="/leads" className="text-gray-500 hover:text-gray-900 flex items-center gap-1">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Leads
+    <div className="mx-auto max-w-6xl space-y-6 pb-12">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm">
+        <Link
+          href="/leads"
+          className="flex items-center gap-1.5 text-gray-500 transition-colors hover:text-gray-900"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Leads
         </Link>
         <span className="text-gray-300">/</span>
-        <span className="text-gray-900 font-medium">{lead.customerName}</span>
-      </div>
+        <span className="font-medium text-gray-900">{lead.customerName}</span>
+      </nav>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left Column: Details */}
-        <div className="flex-1 space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-gray-100 flex justify-between items-start">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{lead.customerName}</h1>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                  <span className="flex items-center gap-1"><Phone className="h-4 w-4 text-gray-400" /> {lead.mobileNumber}</span>
-                  {lead.email && <span className="flex items-center gap-1"><Mail className="h-4 w-4 text-gray-400" /> {lead.email}</span>}
+      <div className="flex flex-col gap-6 lg:flex-row">
+        {/* ── Left column ─────────────────────────────────────────────────────── */}
+        <div className="min-w-0 flex-1 space-y-5">
+
+          {/* Main card */}
+          <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
+            {/* Card header */}
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 p-5 sm:p-6">
+              <div className="min-w-0">
+                <h1 className="font-heading text-2xl font-bold tracking-tight text-gray-900">
+                  {lead.customerName}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="h-3.5 w-3.5 text-gray-400" />
+                    {lead.mobileNumber}
+                  </span>
+                  {lead.email && (
+                    <span className="flex items-center gap-1.5">
+                      <Mail className="h-3.5 w-3.5 text-gray-400" />
+                      {lead.email}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="flex gap-2">
+
+              {/* Action badge */}
+              <div className="flex-shrink-0">
                 {lead.convertedProjectId ? (
-                  <Link 
+                  <Link
                     href={`/projects/${lead.convertedProjectId}`}
-                    className="bg-green-100 text-green-700 px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-green-200 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-200"
                   >
                     <CheckCircle2 className="h-4 w-4" />
                     View Project
                   </Link>
                 ) : canConvert && isAdmin ? (
-                  <button 
+                  <button
                     onClick={() => setShowConvertModal(true)}
-                    className="bg-primary text-primary-foreground px-4 py-2 rounded-md font-medium text-sm flex items-center gap-2 hover:bg-primary/90 transition-colors"
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
                   >
                     <Briefcase className="h-4 w-4" />
                     Punch Order
                   </button>
                 ) : canConvert && !isAdmin ? (
-                  <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-md text-sm flex items-center gap-2">
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
                     <Lock className="h-4 w-4" />
                     Awaiting Admin Approval
                   </div>
                 ) : (
-                  <div className="bg-gray-100 text-gray-400 px-4 py-2 rounded-md text-sm flex items-center gap-2 cursor-not-allowed">
+                  <div className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-400">
                     <Briefcase className="h-4 w-4" />
                     Convert to Project
                   </div>
                 )}
               </div>
             </div>
-            
-            <div className="p-6 bg-gray-50/50">
-              <div className="mb-4">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 block">Pipeline Stage</label>
-                <div className="flex flex-wrap gap-2">
-                  {STAGES.map((stage, idx) => {
-                    const isCurrent = lead.stage === stage.id;
-                    const isPast = STAGES.findIndex(s => s.id === lead.stage) > idx;
-                    return (
-                      <button
-                        key={stage.id}
-                        onClick={() => handleStageChange(stage.id)}
-                        disabled={!!lead.convertedProjectId}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
-                          isCurrent ? "bg-primary text-primary-foreground border-primary" : 
-                          isPast ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100" :
-                          "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                        } ${lead.convertedProjectId ? "opacity-50 cursor-not-allowed" : ""}`}
+
+            {/* Stage stepper */}
+            <div className="border-b border-gray-100 bg-gray-50/60 px-5 py-5 sm:px-6">
+              <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                Pipeline Stage
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {STAGES.map((stage, idx) => {
+                  const isCurrent = lead.stage === stage.id;
+                  const isPast    = currentStageIdx > idx;
+                  return (
+                    <button
+                      key={stage.id}
+                      onClick={() => handleStageChange(stage.id)}
+                      disabled={!!lead.convertedProjectId}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-all ${
+                        isCurrent
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : isPast
+                          ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                          : "border-gray-200 bg-white text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                      } ${lead.convertedProjectId ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                    >
+                      <span
+                        className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+                          isCurrent ? "bg-white/20 text-white" : "bg-current/10"
+                        }`}
                       >
-                        {stage.label}
-                      </button>
-                    );
-                  })}
-                </div>
+                        {idx + 1}
+                      </span>
+                      {stage.label}
+                    </button>
+                  );
+                })}
               </div>
-              
-              <div className="grid grid-cols-2 gap-6 mt-6 pt-6 border-t border-gray-100">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Location</label>
-                  <p className="text-gray-900 flex items-start gap-1">
-                    <MapPin className="h-4 w-4 text-gray-400 mt-0.5" />
-                    <span>{lead.address || "No address"}<br/>{lead.city || ""}</span>
-                  </p>
+            </div>
+
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-5 px-5 py-5 sm:grid-cols-4 sm:px-6">
+              <InfoField label="Location">
+                <div className="flex items-start gap-1.5">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                  <span>
+                    {lead.address || "No address"}
+                    {lead.city && <><br />{lead.city}</>}
+                  </span>
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Assigned Sales Rep</label>
-                  <p className="text-gray-900 flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-400" />
-                    {lead.assignedSalesPerson?.name || "Unassigned"}
-                  </p>
+              </InfoField>
+
+              <InfoField label="Assigned Sales Rep">
+                <div className="flex items-center gap-2">
+                  <User className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                  {lead.assignedSalesPerson?.name || (
+                    <span className="italic text-gray-400">Unassigned</span>
+                  )}
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Lead Source</label>
-                  <p className="text-gray-900">{lead.leadSource || "Direct"}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 block">Follow-up Date</label>
-                  <input 
-                    type="date" 
+              </InfoField>
+
+              <InfoField label="Lead Source">
+                <span className="capitalize">{lead.leadSource || "Direct"}</span>
+              </InfoField>
+
+              <InfoField label="Follow-up Date">
+                <div className="flex items-center gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />
+                  <input
+                    type="date"
                     value={lead.followUpDate ? lead.followUpDate.split("T")[0] : ""}
-                    onChange={(e) => handleUpdateFollowup(new Date(e.target.value).toISOString(), lead.followUpStatus)}
-                    className="h-9 border border-input bg-white rounded-md px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    onChange={(e) =>
+                      handleUpdateFollowup(
+                        new Date(e.target.value).toISOString(),
+                        lead.followUpStatus
+                      )
+                    }
+                    className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
-              </div>
+              </InfoField>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-              <MessageSquare className="h-5 w-5 text-gray-400" />
-              <h2 className="font-semibold text-gray-800">Notes & Communication</h2>
+          {/* Notes card */}
+          <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
+            <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
+              <MessageSquare className="h-4 w-4 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-800">Notes &amp; Communication</h2>
             </div>
-            <div className="p-4">
-              <div className="flex gap-2 mb-6">
-                <input 
+
+            <div className="p-5">
+              {/* Add note */}
+              <div className="mb-5 flex gap-2">
+                <input
                   type="text"
-                  placeholder="Add a note about this lead..."
-                  className="flex-1 h-9 border border-input bg-white rounded-md px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  placeholder="Add a note about this lead…"
+                  className="h-10 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddNote()}
                 />
-                <button 
+                <button
                   onClick={handleAddNote}
                   disabled={!newNote.trim() || createNote.isPending}
-                  className="inline-flex items-center justify-center h-9 px-4 bg-sidebar hover:bg-sidebar/90 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50 shadow-sm"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sidebar/90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Save Note
+                  Save
                 </button>
               </div>
 
-              <div className="space-y-4">
+              {/* Note list */}
+              <div className="space-y-3">
                 {notes?.map((note) => (
-                  <div key={note.id} className="bg-gray-50 rounded-lg p-3 text-sm">
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="font-medium text-gray-900">{note.createdBy?.name || "System"}</span>
-                      <span className="text-xs text-gray-500">{format(new Date(note.createdAt), "MMM d, h:mm a")}</span>
+                  <div
+                    key={note.id}
+                    className="rounded-xl border border-gray-100 bg-gray-50/60 p-4 text-sm"
+                  >
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold uppercase text-primary">
+                          {(note.createdBy?.name || "S").charAt(0)}
+                        </div>
+                        <span className="font-semibold text-gray-900">
+                          {note.createdBy?.name || "System"}
+                        </span>
+                      </div>
+                      <span className="flex-shrink-0 text-xs text-gray-400">
+                        {format(new Date(note.createdAt), "MMM d, h:mm a")}
+                      </span>
                     </div>
-                    <p className="text-gray-700 whitespace-pre-wrap">{note.note}</p>
+                    <p className="whitespace-pre-wrap text-gray-700">{note.note}</p>
                   </div>
                 ))}
                 {notes?.length === 0 && (
-                  <p className="text-center text-sm text-gray-500 py-4">No notes yet.</p>
+                  <p className="py-6 text-center text-sm text-gray-400">
+                    No notes yet. Add the first one above.
+                  </p>
                 )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Column: Timeline */}
-        <div className="w-full lg:w-80 space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex items-center gap-2 bg-gray-50/50">
-              <ActivityIcon className="h-5 w-5 text-gray-400" />
-              <h2 className="font-semibold text-gray-800">Activity History</h2>
+        {/* ── Right column: Timeline ─────────────────────────────────────────── */}
+        <div className="w-full lg:w-80">
+          <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-white/95 shadow-sm backdrop-blur-sm">
+            <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50/60 px-5 py-3.5">
+              <ActivityIcon className="h-4 w-4 text-gray-400" />
+              <h2 className="text-sm font-semibold text-gray-800">Activity History</h2>
             </div>
-            <div className="p-4">
-              <div className="relative border-l border-gray-200 ml-3 space-y-6 py-2">
-                {timeline?.map((activity) => (
-                  <div key={activity.id} className="relative pl-6">
-                    <span className="absolute -left-[9px] top-1 h-4 w-4 rounded-full bg-white border-2 border-primary"></span>
-                    <p className="text-sm font-medium text-gray-900 capitalize">{activity.action.replace(/_/g, " ")}</p>
-                    <p className="text-sm text-gray-600 mt-0.5">{activity.description}</p>
-                    <p className="text-xs text-gray-400 mt-1">{format(new Date(activity.createdAt), "MMM d, h:mm a")}</p>
-                  </div>
-                ))}
-                {(!timeline || timeline.length === 0) && (
-                  <p className="text-sm text-gray-500 pl-6">No activity recorded.</p>
-                )}
-              </div>
+
+            <div className="p-5">
+              {(!timeline || timeline.length === 0) ? (
+                <p className="py-6 text-center text-sm text-gray-400">No activity recorded.</p>
+              ) : (
+                <ol className="relative space-y-5 border-l-2 border-gray-100 pl-5">
+                  {timeline.map((activity) => (
+                    <li key={activity.id} className="relative">
+                      {/* Timeline dot */}
+                      <span className="absolute -left-[1.45rem] top-[3px] flex h-4 w-4 items-center justify-center rounded-full border-2 border-primary bg-white" />
+                      <p className="text-sm font-semibold capitalize text-gray-900">
+                        {activity.action.replace(/_/g, " ")}
+                      </p>
+                      <p className="mt-0.5 text-sm text-gray-600">{activity.description}</p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        {format(new Date(activity.createdAt), "MMM d, h:mm a")}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Convert Modal */}
+      {/* Convert modal */}
       {showConvertModal && (
         <ConvertModal
           engineers={engineers}
