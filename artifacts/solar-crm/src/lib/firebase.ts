@@ -1,35 +1,18 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Firebase Web SDK config values come exclusively from Vite environment
-// variables. Set all VITE_FIREBASE_* variables in your .env file (dev) or
-// hosting environment (production). The app will throw at startup if any
-// required variable is missing rather than silently using stale hardcoded
-// values — this makes misconfiguration visible immediately.
-//
-// Note: Firebase Web SDK keys are intentionally client-side; security is
-// enforced via Firebase Security Rules and server-side token verification,
-// not by keeping config private.
-
-function requireEnv(key: string): string {
-  const value = (import.meta.env as Record<string, string | undefined>)[key];
-  if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${key}\n` +
-        `Set it in your .env file or hosting environment before starting the app.`,
-    );
-  }
-  return value;
-}
-
+// Firebase Web SDK config — these values are intentionally public.
+// They ship in every browser bundle and are secured via Firebase Security Rules
+// and server-side token verification, not by keeping them private.
+// Env vars (VITE_FIREBASE_*) override the defaults below if set.
 export const firebaseConfig = {
-  apiKey:            requireEnv("VITE_FIREBASE_API_KEY"),
-  authDomain:        requireEnv("VITE_FIREBASE_AUTH_DOMAIN"),
-  projectId:         requireEnv("VITE_FIREBASE_PROJECT_ID"),
-  storageBucket:     requireEnv("VITE_FIREBASE_STORAGE_BUCKET"),
-  messagingSenderId: requireEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
-  appId:             requireEnv("VITE_FIREBASE_APP_ID"),
-  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined,
+  apiKey:            (import.meta.env.VITE_FIREBASE_API_KEY            as string) || "AIzaSyDihDO2Mlz8FvCH3tuU1IFXOCsKmQnV8Xc",
+  authDomain:        (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        as string) || "hitech-crm-f6400.firebaseapp.com",
+  projectId:         (import.meta.env.VITE_FIREBASE_PROJECT_ID         as string) || "hitech-crm-f6400",
+  storageBucket:     (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     as string) || "hitech-crm-f6400.firebasestorage.app",
+  messagingSenderId: (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string) || "666562869253",
+  appId:             (import.meta.env.VITE_FIREBASE_APP_ID             as string) || "1:666562869253:web:2fe0e9617f9b02bc8a846c",
+  measurementId:     (import.meta.env.VITE_FIREBASE_MEASUREMENT_ID     as string) || "G-944HKPF5FV",
 };
 
 // Guard against double-init in HMR / strict mode
