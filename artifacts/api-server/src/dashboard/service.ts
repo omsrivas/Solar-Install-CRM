@@ -18,30 +18,31 @@ export async function getDashboardSummary() {
     lowStockData,
   ] = await Promise.all([
     // Leads: total + todayFollowUps
+    // SQLite: FILTER (WHERE ...) is supported since 3.25. No ::type casts needed.
     db
       .select({
-        totalLeads: sql<number>`count(*)::int`,
-        todayFollowUps: sql<number>`count(*) filter (where ${leads.followUpDate} = current_date)::int`,
+        totalLeads: sql<number>`count(*)`,
+        todayFollowUps: sql<number>`count(*) filter (where ${leads.followUpDate} = date('now'))`,
       })
       .from(leads),
 
     // Total revenue: sum of completed/received payments
     db
       .select({
-        totalRevenue: sql<number>`coalesce(sum(${payments.amount}::numeric), 0)::float`,
+        totalRevenue: sql<number>`coalesce(sum(${payments.amount}), 0)`,
       })
       .from(payments)
       .where(sql`${payments.status} = 'received' or ${payments.status} = 'completed'`),
 
     // Pending payments count
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(payments)
       .where(sql`${payments.status} = 'pending'`),
 
     // Active projects (not completed/cancelled)
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(projects)
       .where(
         sql`${projects.stage} not in ('completed', 'cancelled')`,
@@ -49,7 +50,7 @@ export async function getDashboardSummary() {
 
     // Pending complaints (open + in_progress service calls)
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(serviceCalls)
       .where(
         sql`${serviceCalls.status} in ('open', 'in_progress')`,
@@ -57,10 +58,10 @@ export async function getDashboardSummary() {
 
     // Low stock alerts
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(inventoryItems)
       .where(
-        sql`${inventoryItems.currentStock}::numeric <= ${inventoryItems.minStockLevel}::numeric`,
+        sql`${inventoryItems.currentStock} <= ${inventoryItems.minStockLevel}`,
       ),
   ]);
 
@@ -72,13 +73,13 @@ export async function getDashboardSummary() {
   const lowStock = lowStockData[0];
 
   return {
-    totalLeads: leads_?.totalLeads ?? 0,
-    todayFollowUps: leads_?.todayFollowUps ?? 0,
-    ordersOwned: active?.count ?? 0,
-    totalRevenue: revenue?.totalRevenue ?? 0,
-    pendingComplaints: complaints?.count ?? 0,
-    lowStockAlerts: lowStock?.count ?? 0,
-    activeProjects: active?.count ?? 0,
-    pendingPayments: pending?.count ?? 0,
+    totalLeads: Number(leads_?.totalLeads ?? 0),
+    todayFollowUps: Number(leads_?.todayFollowUps ?? 0),
+    ordersOwned: Number(active?.count ?? 0),
+    totalRevenue: Number(revenue?.totalRevenue ?? 0),
+    pendingComplaints: Number(complaints?.count ?? 0),
+    lowStockAlerts: Number(lowStock?.count ?? 0),
+    activeProjects: Number(active?.count ?? 0),
+    pendingPayments: Number(pending?.count ?? 0),
   };
 }
