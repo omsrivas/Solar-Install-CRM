@@ -4,7 +4,7 @@ import { getDashboardSummary } from "../dashboard/service";
 
 const router: IRouter = Router();
 
-router.get("/dashboard", requireAuth, async (_request, response) => {
+router.get("/dashboard/summary", requireAuth, async (_request, response) => {
   try {
     const summary = await getDashboardSummary();
     response.json(summary);

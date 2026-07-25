@@ -371,9 +371,9 @@ router.get(
   },
 );
 
-// PATCH /leads/:id/follow-up
+// PATCH /leads/:id/followup
 router.patch(
-  "/leads/:id/follow-up",
+  "/leads/:id/followup",
   ...salesAndAbove,
   async (request, response) => {
     const id = parseId(request.params.id);
