@@ -1,21 +1,35 @@
 import { initializeApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
-// Firebase Web SDK config is intentionally public — security is enforced via
-// Firebase Security Rules, not by keeping this object private. It is visible
-// in the Firebase console and in every client-side bundle regardless.
+// Firebase Web SDK config values come exclusively from Vite environment
+// variables. Set all VITE_FIREBASE_* variables in your .env file (dev) or
+// hosting environment (production). The app will throw at startup if any
+// required variable is missing rather than silently using stale hardcoded
+// values — this makes misconfiguration visible immediately.
 //
-// Env-var overrides allow per-environment targeting (e.g. staging project).
-// Hardcoded fallbacks ensure the production build works even when VITE_*
-// vars are not injected at build time (external CI runners, etc.).
+// Note: Firebase Web SDK keys are intentionally client-side; security is
+// enforced via Firebase Security Rules and server-side token verification,
+// not by keeping config private.
+
+function requireEnv(key: string): string {
+  const value = (import.meta.env as Record<string, string | undefined>)[key];
+  if (!value) {
+    throw new Error(
+      `Missing required environment variable: ${key}\n` +
+        `Set it in your .env file or hosting environment before starting the app.`,
+    );
+  }
+  return value;
+}
+
 export const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY            ?? "AIzaSyDihDO2Mlz8FvCH3tuU1IFXOCsKmQnV8Xc",
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        ?? "hitech-crm-f6400.firebaseapp.com",
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID         ?? "hitech-crm-f6400",
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     ?? "hitech-crm-f6400.firebasestorage.app",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? "666562869253",
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID             ?? "1:666562869253:web:2fe0e9617f9b02bc8a846c",
-  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID     ?? "G-944HKPF5FV",
+  apiKey:            requireEnv("VITE_FIREBASE_API_KEY"),
+  authDomain:        requireEnv("VITE_FIREBASE_AUTH_DOMAIN"),
+  projectId:         requireEnv("VITE_FIREBASE_PROJECT_ID"),
+  storageBucket:     requireEnv("VITE_FIREBASE_STORAGE_BUCKET"),
+  messagingSenderId: requireEnv("VITE_FIREBASE_MESSAGING_SENDER_ID"),
+  appId:             requireEnv("VITE_FIREBASE_APP_ID"),
+  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string | undefined,
 };
 
 // Guard against double-init in HMR / strict mode

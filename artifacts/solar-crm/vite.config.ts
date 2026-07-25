@@ -8,6 +8,13 @@ const rawPort = process.env.PORT ?? '3000';
 const port = Number(rawPort);
 const basePath = process.env.BASE_PATH ?? '/';
 
+// API proxy target for local development.
+// Set VITE_API_PROXY_TARGET in your .env file to point at the backend, e.g.:
+//   VITE_API_PROXY_TARGET=http://localhost:5000
+// In production the hosting server (NGINX, Caddy, etc.) proxies /api itself
+// so this proxy is only active during `vite dev`.
+const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:5000';
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -52,7 +59,7 @@ export default defineConfig({
     fs: { strict: true },
     proxy: {
       '/api': {
-        target: 'http://200.141.2.42:3000',
+        target: apiProxyTarget,
         changeOrigin: true,
       },
     },
