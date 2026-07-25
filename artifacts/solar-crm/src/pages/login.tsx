@@ -18,12 +18,24 @@ export function Login() {
     try {
       await signIn(email, password);
       setLocation("/dashboard");
-    } catch {
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? "";
+      const msg =
+        code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found"
+          ? "Invalid email or password."
+          : code === "auth/too-many-requests"
+          ? "Too many attempts. Wait a moment and try again."
+          : code === "auth/unauthorized-domain"
+          ? `This domain is not authorized in Firebase. Add your Replit domain to Firebase Console → Authentication → Settings → Authorized domains.`
+          : code === "auth/network-request-failed"
+          ? "Network error. Check your connection."
+          : `Login error: ${code || String(err)}`;
       toast({
         title: "Login failed",
-        description: "Invalid email or password",
+        description: msg,
         variant: "destructive",
       });
+      console.error("[login]", code, err);
     } finally {
       setIsPending(false);
     }
