@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type RequestHandler } from "express";
+import { fileTypeFromBuffer } from "file-type";
 import multer from "multer";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
+import { getOrCreateUserForToken } from "../lib/user-response";
+import { uploadRateLimiter } from "../middleware/security";
 import {
   createDocument,
   deleteDocument,
@@ -26,6 +29,72 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
 });
+
+const ALLOWED_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/json",
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "text/csv",
+  "text/markdown",
+  "text/plain",
+]);
+
+const TEXT_MIME_TYPES = new Set([
+  "application/json",
+  "text/csv",
+  "text/markdown",
+  "text/plain",
+]);
+
+const OFFICE_MIME_TYPES = new Set([
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+async function validateUploadedFile(file: Express.Multer.File): Promise<boolean> {
+  const declaredMime = file.mimetype.toLowerCase().split(";", 1)[0].trim();
+  if (!ALLOWED_MIME_TYPES.has(declaredMime)) return false;
+
+  const detected = await fileTypeFromBuffer(file.buffer);
+  if (!detected) {
+    // Text formats do not have a reliable magic number. They are still
+    // constrained by the explicit allowlist above.
+    return TEXT_MIME_TYPES.has(declaredMime);
+  }
+
+  if (detected.mime === declaredMime) return true;
+
+  // OOXML documents are ZIP containers; file-type reports the container MIME.
+  return OFFICE_MIME_TYPES.has(declaredMime) && detected.mime === "application/zip";
+}
+
+const uploadMiddleware: RequestHandler = (request, response, next): void => {
+  upload.single("file")(request, response, (error: unknown) => {
+    if (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "LIMIT_FILE_SIZE"
+      ) {
+        response.status(413).json({ error: "File exceeds the 50 MB limit." });
+        return;
+      }
+      response.status(400).json({ error: "Invalid multipart upload." });
+      return;
+    }
+    next();
+  });
+};
 
 function parseId(value: unknown): number | null {
   const id = Number(typeof value === "string" ? value : "");
@@ -74,12 +143,26 @@ router.get("/documents", ...allAuthenticated, async (request, response) => {
 // ---------------------------------------------------------------------------
 router.post(
   "/documents/upload",
+  uploadRateLimiter,
   ...allAuthenticated,
-  upload.single("file"),
+  uploadMiddleware,
   async (request, response) => {
     const file = request.file;
     if (!file) {
       response.status(400).json({ error: "A file is required." });
+      return;
+    }
+
+    try {
+      if (!(await validateUploadedFile(file))) {
+        response.status(415).json({
+          error:
+            "Unsupported or invalid file type. Allowed types are PDF, images, text, CSV, JSON, Word, and Excel documents.",
+        });
+        return;
+      }
+    } catch {
+      response.status(415).json({ error: "Unable to validate the uploaded file." });
       return;
     }
 
@@ -111,11 +194,9 @@ router.post(
       const leadId = body.leadId ? parseId(body.leadId) ?? undefined : undefined;
       const projectId = body.projectId ? parseId(body.projectId) ?? undefined : undefined;
 
-      // Derive uploadedById from the authenticated user on the request
-      const authUser = (request as unknown as Record<string, unknown>).user as
-        | { dbId?: number }
-        | undefined;
-      const uploadedById = authUser?.dbId ?? undefined;
+      // Resolve the Firebase identity to the application's database user.
+      const authUser = await getOrCreateUserForToken(request.auth!.claims);
+      const uploadedById = authUser.id;
 
       const created = await createDocument({
         fileName: key,

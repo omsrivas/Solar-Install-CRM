@@ -75,6 +75,10 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Keep transitive production dependencies on patched releases reported by
+  # pnpm audit without changing their public APIs.
+  brace-expansion: "5.0.8"
+  uuid: "11.1.1"
   # replit uses linux-x64 only, we can exclude all other platforms
   "esbuild>@esbuild/darwin-arm64": "-"
   "esbuild>@esbuild/darwin-x64": "-"

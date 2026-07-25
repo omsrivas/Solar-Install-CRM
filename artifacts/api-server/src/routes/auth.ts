@@ -5,8 +5,11 @@ import {
   getOrCreateUserForToken,
   toPublicUser,
 } from "../lib/user-response";
+import { authRateLimiter } from "../middleware/security";
 
 const router: IRouter = Router();
+
+router.use("/auth", authRateLimiter);
 
 router.get("/auth/me", requireAuth, async (request, response) => {
   try {

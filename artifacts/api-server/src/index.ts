@@ -35,6 +35,13 @@ function validateEnvironment(): void {
       `Missing required environment variable(s): ${missing.join(", ")}`,
     );
   }
+
+  if (process.env.NODE_ENV === "production" &&
+      !process.env.CORS_ALLOWED_ORIGINS?.trim()) {
+    throw new Error(
+      "CORS_ALLOWED_ORIGINS must be configured in production as a comma-separated origin allowlist.",
+    );
+  }
 }
 
 async function start(): Promise<void> {

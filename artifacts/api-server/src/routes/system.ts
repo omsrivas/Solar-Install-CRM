@@ -195,11 +195,14 @@ async function restoreTursoBackup(backup: TursoBackup): Promise<void> {
 
   const statements: Array<{
     sql: string;
-    args?: Array<string | number | bigint | Uint8Array | null>;
+    args: Array<string | number | bigint | Uint8Array | null>;
   }> = [];
 
   for (const table of [...backup.tables].reverse()) {
-    statements.push({ sql: `DELETE FROM ${quoteIdentifier(table.name)}` });
+    statements.push({
+      sql: `DELETE FROM ${quoteIdentifier(table.name)}`,
+      args: [],
+    });
   }
 
   for (const table of backup.tables) {
@@ -218,9 +221,9 @@ async function restoreTursoBackup(backup: TursoBackup): Promise<void> {
 
   await client.batch(
     [
-      { sql: "PRAGMA foreign_keys = OFF" },
+      { sql: "PRAGMA foreign_keys = OFF", args: [] },
       ...statements,
-      { sql: "PRAGMA foreign_keys = ON" },
+      { sql: "PRAGMA foreign_keys = ON", args: [] },
     ],
     "write",
   );
