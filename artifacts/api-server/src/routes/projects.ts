@@ -30,10 +30,10 @@ function isDateString(value: unknown): value is string {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-function parseDecimal(value: unknown): string | null {
-  if (typeof value === "number" && isFinite(value)) return String(value);
+function parseDecimal(value: unknown): number | null {
+  if (typeof value === "number" && isFinite(value)) return value;
   if (typeof value === "string" && value.trim() && !isNaN(Number(value)))
-    return String(Number(value));
+    return Number(value);
   return null;
 }
 

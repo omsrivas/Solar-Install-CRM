@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { db } from "./index";
 import { serviceCalls, type ServiceCall } from "./schema/crm";
 
@@ -22,9 +22,9 @@ export async function listServiceCalls(
     const pattern = `%${filters.search}%`;
     conditions.push(
       or(
-        ilike(serviceCalls.customerName, pattern),
-        ilike(serviceCalls.customerPhone, pattern),
-        ilike(serviceCalls.issueDescription, pattern),
+        like(serviceCalls.customerName, pattern),
+        like(serviceCalls.customerPhone, pattern),
+        like(serviceCalls.issueDescription, pattern),
       ),
     );
   }
@@ -70,11 +70,11 @@ export async function deleteServiceCall(id: number): Promise<void> {
 export async function summarizeServiceCalls() {
   const [summary] = await db
     .select({
-      total: sql<number>`count(*)::int`,
-      open: sql<number>`count(*) filter (where ${serviceCalls.status} = 'open')::int`,
-      inProgress: sql<number>`count(*) filter (where ${serviceCalls.status} = 'in_progress')::int`,
-      closed: sql<number>`count(*) filter (where ${serviceCalls.status} = 'closed')::int`,
-      urgent: sql<number>`count(*) filter (where ${serviceCalls.priority} = 'urgent')::int`,
+      total: sql<number>`count(*)`,
+      open: sql<number>`count(*) filter (where ${serviceCalls.status} = 'open')`,
+      inProgress: sql<number>`count(*) filter (where ${serviceCalls.status} = 'in_progress')`,
+      closed: sql<number>`count(*) filter (where ${serviceCalls.status} = 'closed')`,
+      urgent: sql<number>`count(*) filter (where ${serviceCalls.priority} = 'urgent')`,
     })
     .from(serviceCalls);
   return summary;

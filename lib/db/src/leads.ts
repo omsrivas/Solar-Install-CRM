@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { db } from "./index";
 import { leadNotes, leads, type Lead, type LeadNote } from "./schema/crm";
 
@@ -20,9 +20,9 @@ export async function listLeads(filters: LeadFilters = {}): Promise<Lead[]> {
     const pattern = `%${filters.search}%`;
     conditions.push(
       or(
-        ilike(leads.customerName, pattern),
-        ilike(leads.mobileNumber, pattern),
-        ilike(leads.email, pattern),
+        like(leads.customerName, pattern),
+        like(leads.mobileNumber, pattern),
+        like(leads.email, pattern),
       ),
     );
   }
@@ -97,13 +97,13 @@ export async function updateLeadFollowUp(
 export async function summarizeLeads() {
   const [totals] = await db
     .select({
-      total: sql<number>`count(*)::int`,
-      todayFollowUps: sql<number>`count(*) filter (where ${leads.followUpDate} = current_date)::int`,
-      overdueFollowUps: sql<number>`count(*) filter (where ${leads.followUpDate} < current_date and ${leads.followUpStatus} <> 'completed')::int`,
+      total: sql<number>`count(*)`,
+      todayFollowUps: sql<number>`count(*) filter (where ${leads.followUpDate} = date('now'))`,
+      overdueFollowUps: sql<number>`count(*) filter (where ${leads.followUpDate} < date('now') and ${leads.followUpStatus} <> 'completed')`,
     })
     .from(leads);
   const byStage = await db
-    .select({ stage: leads.stage, count: sql<number>`count(*)::int` })
+    .select({ stage: leads.stage, count: sql<number>`count(*)` })
     .from(leads)
     .groupBy(leads.stage);
   return { ...totals, byStage };

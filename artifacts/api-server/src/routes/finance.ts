@@ -80,8 +80,8 @@ router.post("/payments", ...financeAndAbove, async (request, response) => {
   }
 
   const rawAmount =
-    body.amount !== undefined ? String(body.amount) : "";
-  if (!rawAmount || isNaN(Number(rawAmount))) {
+    body.amount !== undefined ? Number(body.amount) : NaN;
+  if (isNaN(rawAmount) || !isFinite(rawAmount)) {
     response.status(400).json({ error: "Valid amount is required." });
     return;
   }
@@ -109,7 +109,7 @@ router.post("/payments", ...financeAndAbove, async (request, response) => {
     const payment = await createPayment({
       projectId,
       type,
-      amount: rawAmount,
+      amount: rawAmount as number,
       status,
       paymentDate,
       paymentMode,
@@ -160,7 +160,7 @@ router.patch(
     const body = request.body as Record<string, unknown>;
     const changes: Partial<{
       type: string;
-      amount: string;
+      amount: number;
       status: string;
       paymentDate: string | null;
       paymentMode: string | null;
@@ -170,7 +170,7 @@ router.patch(
 
     if (typeof body.status === "string") changes.status = body.status.trim();
     if (typeof body.type === "string") changes.type = body.type.trim();
-    if (body.amount !== undefined) changes.amount = String(body.amount);
+    if (body.amount !== undefined) changes.amount = Number(body.amount);
     if (typeof body.paymentDate === "string")
       changes.paymentDate = body.paymentDate.trim() || null;
     if (typeof body.paymentMode === "string")

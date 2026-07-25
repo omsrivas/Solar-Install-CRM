@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, like, or, sql } from "drizzle-orm";
 import { db } from "./index";
 import { projects, type Project } from "./schema/crm";
 
@@ -18,9 +18,9 @@ export async function listProjects(filters: ProjectFilters = {}): Promise<Projec
     const pattern = `%${filters.search}%`;
     conditions.push(
       or(
-        ilike(projects.customerName, pattern),
-        ilike(projects.customerPhone, pattern),
-        ilike(projects.city, pattern),
+        like(projects.customerName, pattern),
+        like(projects.customerPhone, pattern),
+        like(projects.city, pattern),
       ),
     );
   }
@@ -65,14 +65,14 @@ export async function deleteProject(id: number): Promise<void> {
 
 export async function summarizeProjects() {
   const [total] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(projects);
   const [completed] = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(*)` })
     .from(projects)
     .where(eq(projects.stage, "completed"));
   const byStage = await db
-    .select({ stage: projects.stage, count: sql<number>`count(*)::int` })
+    .select({ stage: projects.stage, count: sql<number>`count(*)` })
     .from(projects)
     .groupBy(projects.stage);
   return { total: total.count, completed: completed.count, byStage };

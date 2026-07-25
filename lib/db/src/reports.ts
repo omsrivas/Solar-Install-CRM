@@ -14,30 +14,38 @@ export type ReportDateRange = {
   toDate?: string;
 };
 
-function timestampRange(
-  column: SQLWrapper,
-  filters: ReportDateRange,
-): SQL[] {
+/**
+ * Builds date-range conditions for unix-timestamp INTEGER columns.
+ * Converts the ISO date string (e.g. '2024-01-15') to unix epoch seconds
+ * using SQLite's unixepoch() function.
+ */
+function timestampRange(column: SQLWrapper, filters: ReportDateRange): SQL[] {
   const conditions: SQL[] = [];
   if (filters.fromDate) {
-    conditions.push(sql`${column} >= ${filters.fromDate}::date`);
+    conditions.push(sql`${column} >= unixepoch(${filters.fromDate})`);
   }
   if (filters.toDate) {
-    conditions.push(sql`${column} < ${filters.toDate}::date + interval '1 day'`);
+    conditions.push(
+      sql`${column} < unixepoch(date(${filters.toDate}, '+1 day'))`,
+    );
   }
   return conditions;
 }
 
-function paymentDateRange(
-  filters: ReportDateRange,
-): SQL[] {
-  const paymentDate = sql`coalesce(${payments.paymentDate}, ${payments.createdAt}::date)`;
+/**
+ * Builds date-range conditions for the payments table.
+ * paymentDate is stored as TEXT (ISO date), createdAt is unix timestamp INTEGER.
+ * The effective date is coalesce(paymentDate, date(createdAt, 'unixepoch')),
+ * which is always a TEXT ISO date — so we compare directly as text.
+ */
+function paymentDateRange(filters: ReportDateRange): SQL[] {
+  const paymentDate = sql`coalesce(${payments.paymentDate}, date(${payments.createdAt}, 'unixepoch'))`;
   const conditions: SQL[] = [];
   if (filters.fromDate) {
-    conditions.push(sql`${paymentDate} >= ${filters.fromDate}::date`);
+    conditions.push(sql`${paymentDate} >= ${filters.fromDate}`);
   }
   if (filters.toDate) {
-    conditions.push(sql`${paymentDate} < ${filters.toDate}::date + interval '1 day'`);
+    conditions.push(sql`${paymentDate} < date(${filters.toDate}, '+1 day')`);
   }
   return conditions;
 }
@@ -56,9 +64,9 @@ export async function getLeadsReport(filters: ReportDateRange = {}) {
 
   const [totals] = await db
     .select({
-      totalLeads: sql<number>`count(*)::int`,
-      newLeads: sql<number>`count(*) filter (where ${leads.stage} = 'new')::int`,
-      convertedLeads: sql<number>`count(*) filter (where ${leads.convertedProjectId} is not null or ${leads.stage} = 'converted')::int`,
+      totalLeads: sql<number>`count(*)`,
+      newLeads: sql<number>`count(*) filter (where ${leads.stage} = 'new')`,
+      convertedLeads: sql<number>`count(*) filter (where ${leads.convertedProjectId} is not null or ${leads.stage} = 'converted')`,
     })
     .from(leads)
     .where(where);
@@ -67,7 +75,7 @@ export async function getLeadsReport(filters: ReportDateRange = {}) {
     db
       .select({
         source: sql<string>`coalesce(nullif(${leads.leadSource}, ''), 'Unknown')`,
-        count: sql<number>`count(*)::int`,
+        count: sql<number>`count(*)`,
       })
       .from(leads)
       .where(where)
@@ -76,7 +84,7 @@ export async function getLeadsReport(filters: ReportDateRange = {}) {
     db
       .select({
         stage: leads.stage,
-        count: sql<number>`count(*)::int`,
+        count: sql<number>`count(*)`,
       })
       .from(leads)
       .where(where)
@@ -84,13 +92,14 @@ export async function getLeadsReport(filters: ReportDateRange = {}) {
       .orderBy(asc(leads.stage)),
     db
       .select({
-        date: sql<string>`to_char(${leads.createdAt}::date, 'YYYY-MM-DD')`,
-        count: sql<number>`count(*)::int`,
+        // createdAt is unix timestamp INTEGER — format to YYYY-MM-DD
+        date: sql<string>`strftime('%Y-%m-%d', ${leads.createdAt}, 'unixepoch')`,
+        count: sql<number>`count(*)`,
       })
       .from(leads)
       .where(where)
-      .groupBy(sql`${leads.createdAt}::date`)
-      .orderBy(asc(sql`${leads.createdAt}::date`)),
+      .groupBy(sql`strftime('%Y-%m-%d', ${leads.createdAt}, 'unixepoch')`)
+      .orderBy(asc(sql`strftime('%Y-%m-%d', ${leads.createdAt}, 'unixepoch')`)),
   ]);
 
   return {
@@ -118,9 +127,9 @@ export async function getSalesReport(filters: ReportDateRange = {}) {
 
   const [totals] = await db
     .select({
-      totalOrders: sql<number>`count(distinct ${projects.id})::int`,
+      totalOrders: sql<number>`count(distinct ${projects.id})`,
       totalRevenue: sql<string>`coalesce(sum(${projects.totalAmount}), 0)`,
-      totalLeads: sql<number>`count(distinct ${leads.id})::int`,
+      totalLeads: sql<number>`count(distinct ${leads.id})`,
     })
     .from(leads)
     .leftJoin(projects, eq(projects.leadId, leads.id))
@@ -129,8 +138,8 @@ export async function getSalesReport(filters: ReportDateRange = {}) {
   const bySalesPerson = await db
     .select({
       salesPersonName: sql<string>`coalesce(nullif(${users.name}, ''), 'Unassigned')`,
-      leadsAssigned: sql<number>`count(distinct ${leads.id})::int`,
-      ordersConverted: sql<number>`count(distinct ${projects.id})::int`,
+      leadsAssigned: sql<number>`count(distinct ${leads.id})`,
+      ordersConverted: sql<number>`count(distinct ${projects.id})`,
       revenue: sql<string>`coalesce(sum(${projects.totalAmount}), 0)`,
     })
     .from(leads)
@@ -159,7 +168,8 @@ export async function getSalesReport(filters: ReportDateRange = {}) {
 export async function getFinanceReport(filters: ReportDateRange = {}) {
   const conditions = paymentDateRange(filters);
   const where = whereOrUndefined(conditions);
-  const paymentDate = sql`coalesce(${payments.paymentDate}, ${payments.createdAt}::date)`;
+  // Effective payment date: paymentDate (TEXT) or date derived from createdAt (unix int)
+  const paymentDateExpr = sql`coalesce(${payments.paymentDate}, date(${payments.createdAt}, 'unixepoch'))`;
 
   const [totals] = await db
     .select({
@@ -173,13 +183,13 @@ export async function getFinanceReport(filters: ReportDateRange = {}) {
   const [daily, byPaymentMode] = await Promise.all([
     db
       .select({
-        date: sql<string>`to_char(${paymentDate}, 'YYYY-MM-DD')`,
+        date: paymentDateExpr,
         collected: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} = 'paid'), 0)`,
       })
       .from(payments)
       .where(where)
-      .groupBy(paymentDate)
-      .orderBy(asc(paymentDate)),
+      .groupBy(paymentDateExpr)
+      .orderBy(asc(paymentDateExpr)),
     db
       .select({
         mode: sql<string>`coalesce(nullif(${payments.paymentMode}, ''), 'Unspecified')`,
@@ -196,7 +206,7 @@ export async function getFinanceReport(filters: ReportDateRange = {}) {
     totalPending: asNumber(totals?.totalPending),
     totalOverdue: asNumber(totals?.totalOverdue),
     daily: daily.map((item) => ({
-      date: item.date,
+      date: item.date as string,
       collected: asNumber(item.collected),
     })),
     byPaymentMode: byPaymentMode.map((item) => ({
@@ -212,9 +222,10 @@ export async function getServiceReport(filters: ReportDateRange = {}) {
 
   const [totals] = await db
     .select({
-      totalCalls: sql<number>`count(*)::int`,
-      closedCalls: sql<number>`count(*) filter (where ${serviceCalls.status} = 'closed')::int`,
-      avgResolutionDays: sql<number>`coalesce(avg(extract(epoch from (${serviceCalls.closedAt} - ${serviceCalls.createdAt})) / 86400) filter (where ${serviceCalls.closedAt} is not null), 0)`,
+      totalCalls: sql<number>`count(*)`,
+      closedCalls: sql<number>`count(*) filter (where ${serviceCalls.status} = 'closed')`,
+      // Both closedAt and createdAt are unix timestamp INTEGERs — simple subtraction gives seconds
+      avgResolutionDays: sql<number>`coalesce(avg((${serviceCalls.closedAt} - ${serviceCalls.createdAt}) / 86400.0) filter (where ${serviceCalls.closedAt} is not null), 0)`,
     })
     .from(serviceCalls)
     .where(where);
@@ -223,7 +234,7 @@ export async function getServiceReport(filters: ReportDateRange = {}) {
     db
       .select({
         priority: serviceCalls.priority,
-        count: sql<number>`count(*)::int`,
+        count: sql<number>`count(*)`,
       })
       .from(serviceCalls)
       .where(where)
@@ -232,8 +243,8 @@ export async function getServiceReport(filters: ReportDateRange = {}) {
     db
       .select({
         engineerName: sql<string>`coalesce(nullif(${users.name}, ''), 'Unassigned')`,
-        assigned: sql<number>`count(*)::int`,
-        closed: sql<number>`count(*) filter (where ${serviceCalls.status} = 'closed')::int`,
+        assigned: sql<number>`count(*)`,
+        closed: sql<number>`count(*) filter (where ${serviceCalls.status} = 'closed')`,
       })
       .from(serviceCalls)
       .leftJoin(users, eq(users.id, serviceCalls.assignedEngineerId))
@@ -261,17 +272,19 @@ export async function getServiceReport(filters: ReportDateRange = {}) {
 export async function getInventoryReport() {
   const [totals] = await db
     .select({
-      totalItems: sql<number>`count(*)::int`,
-      lowStockCount: sql<number>`count(*) filter (where ${inventoryItems.isLowStock} = true)::int`,
-      totalValue: sql<string>`coalesce(sum(${inventoryItems.currentStock}::numeric * coalesce(${inventoryItems.unitCost}::numeric, 0)), 0)`,
+      totalItems: sql<number>`count(*)`,
+      // isLowStock is stored as INTEGER 0/1
+      lowStockCount: sql<number>`count(*) filter (where ${inventoryItems.isLowStock} = 1)`,
+      // currentStock and unitCost are REAL — no casting needed
+      totalValue: sql<string>`coalesce(sum(${inventoryItems.currentStock} * coalesce(${inventoryItems.unitCost}, 0)), 0)`,
     })
     .from(inventoryItems);
 
   const byCategory = await db
     .select({
       category: inventoryItems.category,
-      count: sql<number>`count(*)::int`,
-      value: sql<string>`coalesce(sum(${inventoryItems.currentStock}::numeric * coalesce(${inventoryItems.unitCost}::numeric, 0)), 0)`,
+      count: sql<number>`count(*)`,
+      value: sql<string>`coalesce(sum(${inventoryItems.currentStock} * coalesce(${inventoryItems.unitCost}, 0)), 0)`,
     })
     .from(inventoryItems)
     .groupBy(inventoryItems.category)

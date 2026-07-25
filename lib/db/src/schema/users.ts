@@ -1,27 +1,22 @@
-import {
-  boolean,
-  pgEnum,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const userRoles = ["admin", "sales", "finance", "warehouse", "engineer"] as const;
 export type UserRole = (typeof userRoles)[number];
 
-export const userRoleEnum = pgEnum("user_role", userRoles);
-
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   firebaseUid: text("firebase_uid").notNull().unique(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  role: userRoleEnum("role").notNull().default("sales"),
+  role: text("role").$type<UserRole>().notNull().default("sales"),
   phone: text("phone"),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
 });
 
 export type User = typeof users.$inferSelect;

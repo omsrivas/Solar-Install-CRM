@@ -1,4 +1,4 @@
-import { and, eq, ilike, or } from "drizzle-orm";
+import { and, eq, like, or } from "drizzle-orm";
 import { db } from "./index";
 import {
   userRoles,
@@ -82,7 +82,7 @@ export async function listUsers(
   if (role) filters.push(eq(users.role, role));
   if (search) {
     const pattern = `%${search}%`;
-    filters.push(or(ilike(users.name, pattern), ilike(users.email, pattern)));
+    filters.push(or(like(users.name, pattern), like(users.email, pattern)));
   }
 
   return db

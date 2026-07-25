@@ -155,7 +155,7 @@ router.post(
       const transaction = await createInventoryTransaction({
         itemId,
         type,
-        quantity: String(rawQty),
+        quantity: rawQty,
         projectId,
         performedById,
         notes,
@@ -173,7 +173,7 @@ router.post(
 
       const isLowStock = computeIsLowStock(newStock, item.minStockLevel);
       await updateInventoryItem(itemId, {
-        currentStock: String(newStock),
+        currentStock: newStock,
         isLowStock,
       });
 
@@ -245,20 +245,20 @@ router.post(
 
     const currentStock =
       body.currentStock !== undefined
-        ? String(parsePositiveNumber(body.currentStock) ?? 0)
-        : "0";
+        ? (parsePositiveNumber(body.currentStock) ?? 0)
+        : 0;
     const minStockLevel =
       body.minStockLevel !== undefined
-        ? String(parsePositiveNumber(body.minStockLevel) ?? 0)
-        : "0";
+        ? (parsePositiveNumber(body.minStockLevel) ?? 0)
+        : 0;
     const maxStockLevel =
       body.maxStockLevel !== undefined &&
       parsePositiveNumber(body.maxStockLevel) !== null
-        ? String(parsePositiveNumber(body.maxStockLevel))
+        ? parsePositiveNumber(body.maxStockLevel)
         : null;
     const unitCost =
       body.unitCost !== undefined && parsePositiveNumber(body.unitCost) !== null
-        ? String(parsePositiveNumber(body.unitCost))
+        ? parsePositiveNumber(body.unitCost)
         : null;
     const supplierName =
       typeof body.supplierName === "string"
@@ -326,7 +326,7 @@ router.patch(
     }
 
     const body = request.body as Record<string, unknown>;
-    const changes: Record<string, unknown> = {};
+    const changes: Parameters<typeof updateInventoryItem>[1] = {};
 
     if (typeof body.name === "string") changes.name = body.name.trim();
     if (typeof body.category === "string")
@@ -336,19 +336,19 @@ router.patch(
     if (typeof body.unit === "string") changes.unit = body.unit.trim();
     if (body.currentStock !== undefined) {
       const v = parsePositiveNumber(body.currentStock);
-      if (v !== null) changes.currentStock = String(v);
+      if (v !== null) changes.currentStock = v;
     }
     if (body.minStockLevel !== undefined) {
       const v = parsePositiveNumber(body.minStockLevel);
-      if (v !== null) changes.minStockLevel = String(v);
+      if (v !== null) changes.minStockLevel = v;
     }
     if (body.maxStockLevel !== undefined) {
       const v = parsePositiveNumber(body.maxStockLevel);
-      changes.maxStockLevel = v !== null ? String(v) : null;
+      changes.maxStockLevel = v !== null ? v : null;
     }
     if (body.unitCost !== undefined) {
       const v = parsePositiveNumber(body.unitCost);
-      changes.unitCost = v !== null ? String(v) : null;
+      changes.unitCost = v !== null ? v : null;
     }
     if (typeof body.supplierName === "string")
       changes.supplierName = body.supplierName.trim() || null;
@@ -370,8 +370,8 @@ router.patch(
         return;
       }
 
-      const newCurrentStock = (changes.currentStock ?? existing.currentStock) as string | null;
-      const newMinStockLevel = (changes.minStockLevel ?? existing.minStockLevel) as string | null;
+      const newCurrentStock = changes.currentStock ?? existing.currentStock;
+      const newMinStockLevel = changes.minStockLevel ?? existing.minStockLevel;
       changes.isLowStock = computeIsLowStock(newCurrentStock, newMinStockLevel);
 
       const item = await updateInventoryItem(id, changes);

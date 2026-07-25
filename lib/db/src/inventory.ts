@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, like, or, sql } from "drizzle-orm";
 import { db } from "./index";
 import {
   inventoryItems,
@@ -22,9 +22,9 @@ export async function listInventory(
     const pattern = `%${filters.search}%`;
     conditions.push(
       or(
-        ilike(inventoryItems.name, pattern),
-        ilike(inventoryItems.sku, pattern),
-        ilike(inventoryItems.supplierName, pattern),
+        like(inventoryItems.name, pattern),
+        like(inventoryItems.sku, pattern),
+        like(inventoryItems.supplierName, pattern),
       ),
     );
   }

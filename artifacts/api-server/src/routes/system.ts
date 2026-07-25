@@ -72,7 +72,7 @@ router.get("/system/health", ...adminOnly, async (_request, response) => {
   let dbResponseTime = 0;
 
   try {
-    await db.execute(sql`SELECT 1`);
+    await db.run(sql`SELECT 1`);
     dbResponseTime = Date.now() - start;
   } catch {
     dbStatus = "error";
