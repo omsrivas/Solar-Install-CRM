@@ -39,6 +39,10 @@ function getFirebaseServiceAccount(): ServiceAccount {
   return parsed as ServiceAccount;
 }
 
+export function validateFirebaseConfiguration(): void {
+  getFirebaseServiceAccount();
+}
+
 export function getFirebaseAuth(): Auth {
   if (firebaseAuth) return firebaseAuth;
 

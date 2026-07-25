@@ -5,13 +5,33 @@ import { execSync } from "node:child_process";
 import { Router, type IRouter } from "express";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
-import { db } from "@workspace/db";
+import { client, db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
 const adminOnly = [requireAuth, requireRole("admin")];
+
+type BackupScalar =
+  | null
+  | string
+  | number
+  | { type: "bigint"; value: string }
+  | { type: "blob"; value: string };
+
+type BackupTable = {
+  name: string;
+  columns: string[];
+  rows: BackupScalar[][];
+};
+
+type TursoBackup = {
+  format: "turso-libsql-json";
+  version: 1;
+  createdAt: string;
+  tables: BackupTable[];
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,6 +62,168 @@ function formatUptime(seconds: number): string {
   if (h > 0) return `${h}h ${m}m ${s}s`;
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
+}
+
+function quoteIdentifier(identifier: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
+    throw new Error(`Unsafe SQLite identifier: ${identifier}`);
+  }
+  return `"${identifier}"`;
+}
+
+function encodeBackupValue(value: unknown): BackupScalar {
+  if (value === null || typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "bigint") {
+    return { type: "bigint", value: value.toString() };
+  }
+  if (value instanceof Uint8Array) {
+    return { type: "blob", value: Buffer.from(value).toString("base64") };
+  }
+  throw new Error(`Unsupported SQLite value type: ${typeof value}`);
+}
+
+function decodeBackupValue(value: BackupScalar): string | number | bigint | Uint8Array | null {
+  if (value === null || typeof value === "string" || typeof value === "number") {
+    return value;
+  }
+  if (value.type === "bigint") {
+    return BigInt(value.value);
+  }
+  return Uint8Array.from(Buffer.from(value.value, "base64"));
+}
+
+function isBackup(value: unknown): value is TursoBackup {
+  if (!value || typeof value !== "object") return false;
+  const backup = value as Partial<TursoBackup>;
+  return (
+    backup.format === "turso-libsql-json" &&
+    backup.version === 1 &&
+    typeof backup.createdAt === "string" &&
+    Array.isArray(backup.tables) &&
+    backup.tables.every(
+      (table) =>
+        Boolean(table) &&
+        typeof table.name === "string" &&
+        Array.isArray(table.columns) &&
+        table.columns.every((column) => typeof column === "string") &&
+        Array.isArray(table.rows) &&
+        table.rows.every(
+          (row) =>
+            Array.isArray(row) &&
+            row.every((entry) => {
+              if (
+                entry === null ||
+                typeof entry === "string" ||
+                typeof entry === "number"
+              ) {
+                return true;
+              }
+              if (!entry || typeof entry !== "object") return false;
+              const encoded = entry as Record<string, unknown>;
+              return (
+                (encoded.type === "bigint" || encoded.type === "blob") &&
+                typeof encoded.value === "string"
+              );
+            }),
+        ),
+    )
+  );
+}
+
+async function createTursoBackup(): Promise<TursoBackup> {
+  const tableResult = await client.execute(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' ORDER BY name",
+  );
+  const tables: BackupTable[] = [];
+
+  for (const row of tableResult.rows) {
+    const tableName = String(row.name);
+    const tableResult = await client.execute(
+      `PRAGMA table_info(${quoteIdentifier(tableName)})`,
+    );
+    const columns = tableResult.rows.map((column) => String(column.name));
+    const rowsResult = await client.execute(
+      `SELECT * FROM ${quoteIdentifier(tableName)}`,
+    );
+
+    tables.push({
+      name: tableName,
+      columns,
+      rows: rowsResult.rows.map((row) =>
+        columns.map((column) => encodeBackupValue(row[column])),
+      ),
+    });
+  }
+
+  return {
+    format: "turso-libsql-json",
+    version: 1,
+    createdAt: new Date().toISOString(),
+    tables,
+  };
+}
+
+async function restoreTursoBackup(backup: TursoBackup): Promise<void> {
+  const currentTables = await client.execute(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' ORDER BY name",
+  );
+  const currentTableNames = new Set(
+    currentTables.rows.map((row) => String(row.name)),
+  );
+  const backupTableNames = new Set(backup.tables.map((table) => table.name));
+
+  if (
+    currentTableNames.size !== backupTableNames.size ||
+    [...currentTableNames].some((name) => !backupTableNames.has(name))
+  ) {
+    throw new Error("Backup schema does not match the current Turso database.");
+  }
+
+  for (const table of backup.tables) {
+    if (!currentTableNames.has(table.name)) {
+      throw new Error(`Backup contains unknown table: ${table.name}`);
+    }
+    if (new Set(table.columns).size !== table.columns.length) {
+      throw new Error(`Backup contains duplicate columns for table: ${table.name}`);
+    }
+    if (table.rows.some((row) => row.length !== table.columns.length)) {
+      throw new Error(`Backup contains invalid row data for table: ${table.name}`);
+    }
+  }
+
+  const statements: Array<{
+    sql: string;
+    args?: Array<string | number | bigint | Uint8Array | null>;
+  }> = [];
+
+  for (const table of [...backup.tables].reverse()) {
+    statements.push({ sql: `DELETE FROM ${quoteIdentifier(table.name)}` });
+  }
+
+  for (const table of backup.tables) {
+    if (table.rows.length === 0) continue;
+    const quotedTable = quoteIdentifier(table.name);
+    const quotedColumns = table.columns.map(quoteIdentifier).join(", ");
+    const placeholders = table.columns.map(() => "?").join(", ");
+
+    for (const row of table.rows) {
+      statements.push({
+        sql: `INSERT INTO ${quotedTable} (${quotedColumns}) VALUES (${placeholders})`,
+        args: row.map(decodeBackupValue),
+      });
+    }
+  }
+
+  await client.batch(
+    [
+      { sql: "PRAGMA foreign_keys = OFF" },
+      ...statements,
+      { sql: "PRAGMA foreign_keys = ON" },
+    ],
+    "write",
+  );
 }
 
 function getDiskInfo(): { used: number; free: number; total: number; percentage: number } {
@@ -117,7 +299,7 @@ router.get("/backup/list", ...adminOnly, (_request, response) => {
     ensureBackupDir();
     const files = fs
       .readdirSync(BACKUP_DIR)
-      .filter((f) => f.endsWith(".sql") || f.endsWith(".sql.gz"))
+      .filter((f) => f.endsWith(".json"))
       .map((filename) => {
         const stat = fs.statSync(path.join(BACKUP_DIR, filename));
         return {
@@ -137,23 +319,14 @@ router.get("/backup/list", ...adminOnly, (_request, response) => {
 
 // ─── POST /backup/create ──────────────────────────────────────────────────────
 
-router.post("/backup/create", ...adminOnly, (_request, response) => {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    response.status(500).json({ error: "DATABASE_URL is not configured." });
-    return;
-  }
-
+router.post("/backup/create", ...adminOnly, async (_request, response) => {
   try {
     ensureBackupDir();
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `backup-${timestamp}.sql`;
+    const filename = `backup-${timestamp}.json`;
     const filePath = path.join(BACKUP_DIR, filename);
-
-    execSync(`pg_dump --no-owner --no-acl --format=plain "${dbUrl}" > "${filePath}"`, {
-      timeout: 120_000,
-      env: { ...process.env },
-    });
+    const backup = await createTursoBackup();
+    fs.writeFileSync(filePath, JSON.stringify(backup, null, 2), "utf8");
 
     const stat = fs.statSync(filePath);
     response.status(201).json({
@@ -164,19 +337,13 @@ router.post("/backup/create", ...adminOnly, (_request, response) => {
     });
   } catch (err) {
     logger.error({ err }, "Backup creation failed");
-    response.status(500).json({ error: "Backup creation failed. Ensure pg_dump is available." });
+    response.status(500).json({ error: "Backup creation failed." });
   }
 });
 
 // ─── POST /backup/restore ─────────────────────────────────────────────────────
 
-router.post("/backup/restore", ...adminOnly, (request, response) => {
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
-    response.status(500).json({ error: "DATABASE_URL is not configured." });
-    return;
-  }
-
+router.post("/backup/restore", ...adminOnly, async (request, response) => {
   const body = request.body as Record<string, unknown>;
   const filename = typeof body.filename === "string" ? body.filename.trim() : "";
 
@@ -198,10 +365,12 @@ router.post("/backup/restore", ...adminOnly, (request, response) => {
   }
 
   try {
-    execSync(`psql "${dbUrl}" < "${filePath}"`, {
-      timeout: 300_000,
-      env: { ...process.env },
-    });
+    const backup = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
+    if (!isBackup(backup)) {
+      response.status(400).json({ error: "Invalid Turso backup file." });
+      return;
+    }
+    await restoreTursoBackup(backup);
     response.json({ message: "Backup restored successfully." });
   } catch (err) {
     logger.error({ err }, "Backup restore failed");
