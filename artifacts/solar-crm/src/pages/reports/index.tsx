@@ -89,11 +89,18 @@ function ChartPanel({
 
 export function Reports() {
   const [activeTab, setActiveTab] = useState<"sales" | "finance" | "inventory">("sales");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const { toast } = useToast();
 
-  const { data: leadsReport } = useGetLeadsReport({});
-  const { data: salesReport } = useGetSalesReport({});
-  const { data: financeReport } = useGetFinanceReport({});
+  const dateParams = {
+    ...(fromDate ? { fromDate } : {}),
+    ...(toDate ? { toDate } : {}),
+  };
+
+  const { data: leadsReport } = useGetLeadsReport(dateParams);
+  const { data: salesReport } = useGetSalesReport(dateParams);
+  const { data: financeReport } = useGetFinanceReport(dateParams);
   const { data: inventoryReport } = useGetInventoryReport();
 
   return (
@@ -150,6 +157,39 @@ export function Reports() {
         </button>
         </div>
       </div>
+
+      {activeTab !== "inventory" && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200/80 bg-white px-4 py-3 shadow-sm">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">Date range</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => setFromDate(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="From date"
+            />
+            <span className="text-xs text-gray-400">to</span>
+            <input
+              type="date"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => setToDate(e.target.value)}
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              aria-label="To date"
+            />
+            {(fromDate || toDate) && (
+              <button
+                onClick={() => { setFromDate(""); setToDate(""); }}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-700"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {activeTab === "sales" && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out">
