@@ -6,10 +6,14 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "bootstrap-admin": "tsx ./src/bootstrap-admin.ts",
+    "create-admin": "tsx ./src/create-admin.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@workspace/db": "workspace:*"
+    "@workspace/db": "workspace:*",
+    "@libsql/client": "^0.14.0",
+    "drizzle-orm": "catalog:",
+    "firebase-admin": "^13.4.0"
   },
   "devDependencies": {
     "@types/node": "catalog:",
