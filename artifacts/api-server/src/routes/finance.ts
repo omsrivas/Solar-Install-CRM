@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
 import {
+  createActivity,
   createPayment,
   deletePayment,
   findPaymentById,
@@ -116,6 +117,7 @@ router.post("/payments", ...financeAndAbove, async (request, response) => {
       referenceNumber,
       notes,
     });
+    void createActivity({ entityType: "payment", entityId: payment.id, action: "create_payment", description: `Payment of ₹${rawAmount} (${type}) recorded for project #${projectId}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(201).json(payment);
   } catch {
     response.status(500).json({ error: "Unable to create payment." });
@@ -191,6 +193,7 @@ router.patch(
         response.status(404).json({ error: "Payment not found." });
         return;
       }
+      void createActivity({ entityType: "payment", entityId: payment.id, action: "update_payment", description: `Payment #${payment.id} updated (${payment.type}, status: ${payment.status})`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.json(payment);
     } catch {
       response.status(500).json({ error: "Unable to update payment." });
@@ -213,6 +216,7 @@ router.delete("/payments/:id", ...adminOnly, async (request, response) => {
       return;
     }
     await deletePayment(id);
+    void createActivity({ entityType: "payment", entityId: id, action: "delete_payment", description: `Payment #${id} deleted (${existing.type}, ₹${existing.amount})`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(204).send();
   } catch {
     response.status(500).json({ error: "Unable to delete payment." });

@@ -4,6 +4,7 @@ import { getFirebaseAuth } from "../auth/firebase";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
 import {
+  createActivity,
   createUser,
   deleteUser,
   findUserByEmail,
@@ -83,6 +84,7 @@ router.post("/users", ...adminOnly, async (request, response) => {
     }
 
     const created = await createUser({ firebaseUid, name, email, phone, role });
+    void createActivity({ entityType: "user", entityId: created.id, action: "create_user", description: `User created: ${created.name} (${created.role})`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(201).json(toPublicUser(created));
   } catch (error: unknown) {
     const code = (error as { code?: string }).code;
@@ -161,6 +163,7 @@ router.patch("/users/:id", ...adminOnly, async (request, response) => {
       }
     }
 
+    void createActivity({ entityType: "user", entityId: id, action: "update_user", description: `User updated: ${existing.name}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.json(toPublicUser(updated));
   } catch {
     response.status(409).json({ error: "Unable to update user; email may already be in use." });
@@ -181,6 +184,7 @@ router.delete("/users/:id", ...adminOnly, async (request, response) => {
   }
 
   try {
+    void createActivity({ entityType: "user", entityId: id, action: "delete_user", description: `User deleted: ${existing.name} (${existing.role})`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     await deleteUser(id);
     try {
       await getFirebaseAuth().deleteUser(existing.firebaseUid);

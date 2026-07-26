@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
 import {
+  createActivity,
   createLead,
   createPayment,
   createProject,
@@ -143,6 +144,7 @@ router.post("/projects", ...salesAndAbove, async (request, response) => {
       remarks,
       assignedEngineerId,
     });
+    void createActivity({ entityType: "project", entityId: project.id, action: "create_project", description: `Project created for ${project.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(201).json(project);
   } catch {
     response.status(500).json({ error: "Unable to create project." });
@@ -262,6 +264,7 @@ router.patch("/projects/:id", ...salesAndAbove, async (request, response) => {
       response.status(404).json({ error: "Project not found." });
       return;
     }
+    void createActivity({ entityType: "project", entityId: project.id, action: "update_project", description: `Project updated for ${project.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.json(project);
   } catch {
     response.status(500).json({ error: "Unable to update project." });
@@ -282,6 +285,7 @@ router.delete("/projects/:id", ...adminOnly, async (request, response) => {
       return;
     }
     await deleteProject(id);
+    void createActivity({ entityType: "project", entityId: id, action: "delete_project", description: `Project deleted for ${project.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(204).end();
   } catch {
     response.status(500).json({ error: "Unable to delete project." });
@@ -379,6 +383,8 @@ router.post(
         });
       }
 
+      void createActivity({ entityType: "project", entityId: project.id, action: "convert_lead", description: `Lead converted to project for ${project.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
+      void createActivity({ entityType: "lead", entityId: lead.id, action: "converted", description: `Lead converted to project #${project.id} for ${lead.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.status(201).json(project);
     } catch {
       response.status(500).json({ error: "Unable to convert lead to project." });

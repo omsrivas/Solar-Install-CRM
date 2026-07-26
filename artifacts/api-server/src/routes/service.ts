@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
 import {
+  createActivity,
   createServiceCall,
   deleteServiceCall,
   findServiceCallById,
@@ -123,6 +124,7 @@ router.post("/service", ...engineerAndAbove, async (request, response) => {
       hsnCode,
       scheduledDate,
     });
+    void createActivity({ entityType: "service", entityId: created.id, action: "create_service_call", description: `Service call created for ${created.customerName}: ${created.issueDescription.slice(0, 80)}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(201).json(created);
   } catch {
     response.status(500).json({ error: "Unable to create service call." });
@@ -201,6 +203,7 @@ router.patch("/service/:id", ...engineerAndAbove, async (request, response) => {
 
   try {
     const updated = await updateServiceCall(id, changes as Parameters<typeof updateServiceCall>[1]);
+    void createActivity({ entityType: "service", entityId: id, action: "update_service_call", description: `Service call updated for ${existing.customerName} (status: ${(changes as Record<string, unknown>).status ?? existing.status})`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.json(updated);
   } catch {
     response.status(500).json({ error: "Unable to update service call." });
@@ -223,6 +226,7 @@ router.delete("/service/:id", ...adminOnly, async (request, response) => {
 
   try {
     await deleteServiceCall(id);
+    void createActivity({ entityType: "service", entityId: id, action: "delete_service_call", description: `Service call deleted for ${existing.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(204).send();
   } catch {
     response.status(500).json({ error: "Unable to delete service call." });

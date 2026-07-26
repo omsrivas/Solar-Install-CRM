@@ -8,6 +8,7 @@ import { requireRole } from "../auth/roles";
 import { getOrCreateUserForToken } from "../lib/user-response";
 import { uploadRateLimiter } from "../middleware/security";
 import {
+  createActivity,
   createDocument,
   deleteDocument,
   findDocumentById,
@@ -211,6 +212,7 @@ router.post(
         notes,
       });
 
+      void createActivity({ entityType: "document", entityId: created.id, action: "upload_document", description: `Document uploaded: ${file.originalname} (${documentType})`, performedById: uploadedById ?? null }).catch(() => {});
       response.status(201).json(created);
     } catch (err) {
       // Metadata write failed — attempt to clean up the object we just uploaded
@@ -363,6 +365,7 @@ router.delete(
 
     try {
       await deleteDocument(id);
+      void createActivity({ entityType: "document", entityId: id, action: "delete_document", description: `Document deleted: ${existing.originalName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.status(204).send();
     } catch {
       response.status(500).json({ error: "Unable to delete document record." });

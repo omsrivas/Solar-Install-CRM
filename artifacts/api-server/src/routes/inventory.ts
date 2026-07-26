@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
 import {
+  createActivity,
   createInventoryItem,
   createInventoryTransaction,
   deleteInventoryItem,
@@ -177,6 +178,7 @@ router.post(
         isLowStock,
       });
 
+      void createActivity({ entityType: "inventory", entityId: transaction.id, action: "inventory_transaction", description: `Stock ${type} of ${rawQty} ${item.unit} for ${item.name}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.status(201).json(transaction);
     } catch {
       response
@@ -283,6 +285,7 @@ router.post(
         location,
         isLowStock,
       });
+      void createActivity({ entityType: "inventory", entityId: item.id, action: "create_inventory_item", description: `Inventory item created: ${item.name} (${item.category})`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.status(201).json(item);
     } catch {
       response.status(500).json({ error: "Unable to create inventory item." });
@@ -379,6 +382,7 @@ router.patch(
         response.status(404).json({ error: "Inventory item not found." });
         return;
       }
+      void createActivity({ entityType: "inventory", entityId: item.id, action: "update_inventory_item", description: `Inventory item updated: ${item.name}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.json(item);
     } catch {
       response.status(500).json({ error: "Unable to update inventory item." });
@@ -404,6 +408,7 @@ router.delete(
         return;
       }
       await deleteInventoryItem(id);
+      void createActivity({ entityType: "inventory", entityId: id, action: "delete_inventory_item", description: `Inventory item deleted: ${existing.name}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.status(204).send();
     } catch {
       response.status(500).json({ error: "Unable to delete inventory item." });

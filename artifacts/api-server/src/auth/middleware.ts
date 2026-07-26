@@ -8,6 +8,7 @@ export type AuthenticatedUser = {
   name: string | null;
   claims: DecodedIdToken;
   role?: string;
+  dbUserId?: number;
 };
 
 declare global {

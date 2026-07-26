@@ -20,6 +20,7 @@ export function requireRole(...allowedRoles: string[]) {
       }
 
       request.auth.role = user.role;
+      request.auth.dbUserId = user.id;
       if (!allowedRoles.includes(user.role)) {
         response.status(403).json({ error: "Insufficient role permissions." });
         return;

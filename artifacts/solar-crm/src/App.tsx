@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query';
+import { getListActivitiesQueryKey } from '@workspace/api-client-react';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Router } from '@/Router';
@@ -6,7 +7,13 @@ import { Router as WouterRouter } from 'wouter';
 import { AuthProvider } from '@/context/AuthContext';
 import { InstallPrompt } from '@/components/InstallPrompt';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: getListActivitiesQueryKey() });
+    },
+  }),
+});
 
 function App() {
   return (

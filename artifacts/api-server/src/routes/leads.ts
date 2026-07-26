@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { requireAuth } from "../auth/middleware";
 import { requireRole } from "../auth/roles";
 import {
+  createActivity,
   createLead,
   createLeadNote,
   deleteLead,
@@ -155,6 +156,7 @@ router.post("/leads", ...salesAndAbove, async (request, response) => {
       followUpStatus,
       assignedSalesPersonId,
     });
+    void createActivity({ entityType: "lead", entityId: lead.id, action: "create_lead", description: `Lead created for ${lead.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(201).json(lead);
   } catch {
     response.status(500).json({ error: "Unable to create lead." });
@@ -261,6 +263,7 @@ router.patch("/leads/:id", ...salesAndAbove, async (request, response) => {
       response.status(404).json({ error: "Lead not found." });
       return;
     }
+    void createActivity({ entityType: "lead", entityId: lead.id, action: "update_lead", description: `Lead updated for ${lead.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.json(lead);
   } catch {
     response.status(500).json({ error: "Unable to update lead." });
@@ -281,6 +284,7 @@ router.delete("/leads/:id", ...adminOnly, async (request, response) => {
       return;
     }
     await deleteLead(id);
+    void createActivity({ entityType: "lead", entityId: id, action: "delete_lead", description: `Lead deleted for ${lead.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
     response.status(204).end();
   } catch {
     response.status(500).json({ error: "Unable to delete lead." });
@@ -340,6 +344,7 @@ router.post(
       const createdById = dbUser?.id ?? null;
 
       const created = await createLeadNote({ leadId: id, note, createdById });
+      void createActivity({ entityType: "lead", entityId: id, action: "add_note", description: `Note added to lead: ${note.slice(0, 80)}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.status(201).json(created);
     } catch {
       response.status(500).json({ error: "Unable to create lead note." });
@@ -403,6 +408,7 @@ router.patch(
         response.status(404).json({ error: "Lead not found." });
         return;
       }
+      void createActivity({ entityType: "lead", entityId: lead.id, action: "update_followup", description: `Follow-up set to ${followUpDate} (${followUpStatus}) for ${lead.customerName}`, performedById: request.auth!.dbUserId ?? null }).catch(() => {});
       response.json(lead);
     } catch {
       response
