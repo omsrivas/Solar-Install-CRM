@@ -648,10 +648,7 @@ export function Users() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
         setEditTarget(null);
-        toast({ title: "User updated successfully" });
-      },
-      onError: () => {
-        toast({ title: "Failed to update user", variant: "destructive" });
+
       },
     },
   });
@@ -677,17 +674,24 @@ export function Users() {
 
   const handleUpdate = (form: EditForm) => {
     if (!editTarget) return;
-    updateUser.mutate({
-      id: editTarget,
-      data: {
-        name: form.name,
-        email: form.email,
-        role: form.role,
-        phone: form.phone || undefined,
-        isActive: form.isActive === "true",
-        ...(form.password ? { password: form.password } : {}),
+    updateUser.mutate(
+      {
+        id: editTarget,
+        data: {
+          name: form.name,
+          email: form.email,
+          role: form.role,
+          phone: form.phone || undefined,
+          isActive: form.isActive === "true",
+          ...(form.password ? { password: form.password } : {}),
+        },
       },
-    });
+      {
+        onSuccess: () => toast({ title: "User updated successfully" }),
+        onError: () =>
+          toast({ title: "Failed to update user", variant: "destructive" }),
+      },
+    );
   };
 
   const getRoleColor = (role: string) => {
