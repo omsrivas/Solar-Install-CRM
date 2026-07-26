@@ -73,8 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
-    // onIdTokenChanged will fire and update the token store automatically
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const user = credential.user;
+
+    // Publish the token before exposing the authenticated user. Firebase can
+    // resolve signInWithEmailAndPassword before onIdTokenChanged has finished
+    // its async callback, so the first protected request must not race token
+    // initialization.
+    setStoredTokenProvider(() => user.getIdToken());
+    setStoredToken(await user.getIdToken());
+    setFirebaseUser(user);
+    setLoading(false);
   };
 
   const signOut = async () => {

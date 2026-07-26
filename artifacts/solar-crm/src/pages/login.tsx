@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { SunMedium, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
@@ -8,7 +7,6 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { signIn } = useAuth();
 
@@ -17,7 +15,6 @@ export function Login() {
     setIsPending(true);
     try {
       await signIn(email, password);
-      setLocation("/dashboard");
     } catch (err: unknown) {
       const code = (err as { code?: string })?.code ?? "";
       const msg =
