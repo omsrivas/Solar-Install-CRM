@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -249,6 +249,12 @@ export function Layout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileLoadTimedOut, setProfileLoadTimedOut] = useState(false);
 
+  // Refs for the main scroll container and page-transition div.
+  // Kept here (before any early return) to satisfy Rules of Hooks.
+  const mainRef = useRef<HTMLElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const isFirstTransition = useRef(true);
+
   useEffect(() => { setSidebarOpen(false); }, [location]);
 
   useEffect(() => {
@@ -277,6 +283,24 @@ export function Layout({ children }: { children: ReactNode }) {
       setLocation(ROLE_NAV[role]?.[0]?.href ?? "/dashboard");
     }
   }, [user, location, setLocation]);
+
+  // On route change: scroll to top and restart the page-enter animation
+  // without unmounting children (preserves React Query cache, no white flash).
+  useEffect(() => {
+    if (isFirstTransition.current) {
+      isFirstTransition.current = false;
+      return;
+    }
+    // Scroll the main content area back to the top.
+    mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    // Restart CSS animation by removing the class, forcing a reflow, then
+    // re-adding it. This avoids the remount-based flash from key={location}.
+    const el = pageRef.current;
+    if (!el) return;
+    el.classList.remove("page-transition");
+    void el.offsetHeight; // force reflow so the browser sees the class removal
+    el.classList.add("page-transition");
+  }, [location]);
 
   // ── Loading / error state ──────────────────────────────────────────────────
 
@@ -437,9 +461,9 @@ export function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* ── Page content ───────────────────────────────────────── */}
-      <main className="flex-1 min-w-0 min-h-0 bg-background overflow-y-auto pt-14 md:pt-0">
+      <main ref={mainRef} className="flex-1 min-w-0 min-h-0 bg-background overflow-y-auto pt-14 md:pt-0">
         <div className="container mx-auto p-4 md:p-6 lg:p-8 max-w-7xl">
-          <div key={location} className="page-transition">
+          <div ref={pageRef} className="page-transition">
             {children}
           </div>
         </div>
