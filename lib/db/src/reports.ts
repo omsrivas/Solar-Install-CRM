@@ -173,7 +173,7 @@ export async function getFinanceReport(filters: ReportDateRange = {}) {
 
   const [totals] = await db
     .select({
-      totalCollected: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} = 'paid'), 0)`,
+      totalCollected: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} in ('paid', 'received')), 0)`,
       totalPending: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} = 'pending'), 0)`,
       totalOverdue: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} = 'overdue'), 0)`,
     })
@@ -184,7 +184,7 @@ export async function getFinanceReport(filters: ReportDateRange = {}) {
     db
       .select({
         date: paymentDateExpr,
-        collected: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} = 'paid'), 0)`,
+        collected: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} in ('paid', 'received')), 0)`,
       })
       .from(payments)
       .where(where)
@@ -193,7 +193,7 @@ export async function getFinanceReport(filters: ReportDateRange = {}) {
     db
       .select({
         mode: sql<string>`coalesce(nullif(${payments.paymentMode}, ''), 'Unspecified')`,
-        amount: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} = 'paid'), 0)`,
+        amount: sql<string>`coalesce(sum(${payments.amount}) filter (where ${payments.status} in ('paid', 'received')), 0)`,
       })
       .from(payments)
       .where(where)
