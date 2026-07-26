@@ -23,7 +23,6 @@ import {
   RefreshCw,
   Shield,
 } from "lucide-react";
-import { getAuthToken } from "@/lib/tokenStore";
 
 type Role = "admin" | "sales" | "finance" | "warehouse" | "engineer";
 
@@ -146,9 +145,6 @@ function SidebarBody({
   location,
   onClose,
   onLogout,
-  showClaimAdmin,
-  onClaimAdmin,
-  isClaimingAdmin,
 }: {
   user: { name?: string | null; role?: string | null };
   navItems: Array<{ icon: React.ElementType; label: string; href: string }>;
@@ -156,9 +152,6 @@ function SidebarBody({
   location: string;
   onClose?: () => void;
   onLogout: () => void;
-  showClaimAdmin?: boolean;
-  onClaimAdmin?: () => void;
-  isClaimingAdmin?: boolean;
 }) {
   const role = (user.role ?? "admin") as Role;
   const initial = (user.name ?? "?").charAt(0).toUpperCase();
@@ -203,22 +196,7 @@ function SidebarBody({
           </div>
         )}
 
-        {showClaimAdmin && (
-          <div className="mt-5 px-2">
-            <NavSectionLabel>Setup</NavSectionLabel>
-            <button
-              type="button"
-              onClick={onClaimAdmin}
-              disabled={isClaimingAdmin}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-amber-300 transition-colors hover:bg-sidebar-accent/50 hover:text-amber-200 disabled:opacity-60"
-            >
-              <Shield className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">
-                {isClaimingAdmin ? "Claiming…" : "Claim Admin Access"}
-              </span>
-            </button>
-          </div>
-        )}
+
       </div>
 
       {/* ── User footer ───────────────────────────────────────────── */}
@@ -270,8 +248,6 @@ export function Layout({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileLoadTimedOut, setProfileLoadTimedOut] = useState(false);
-  const [adminExists, setAdminExists] = useState<boolean | null>(null);
-  const [isClaimingAdmin, setIsClaimingAdmin] = useState(false);
 
   useEffect(() => { setSidebarOpen(false); }, [location]);
 
@@ -301,38 +277,6 @@ export function Layout({ children }: { children: ReactNode }) {
       setLocation(ROLE_NAV[role]?.[0]?.href ?? "/dashboard");
     }
   }, [user, location, setLocation]);
-
-  // Check if any admin exists — used to show/hide the Claim Admin button
-  // for non-admin users during initial setup.
-  useEffect(() => {
-    if (!user || user.role === "admin") return;
-    fetch("/api/auth/admin-exists")
-      .then((r) => r.json())
-      .then((data: { exists: boolean }) => setAdminExists(data.exists))
-      .catch(() => setAdminExists(true)); // fail-safe: assume admin exists
-  }, [user]);
-
-  const handleClaimAdmin = async () => {
-    setIsClaimingAdmin(true);
-    try {
-      const token = await getAuthToken();
-      const res = await fetch("/api/auth/claim-admin", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        // Reload the user profile — role is now admin
-        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      } else {
-        const body = await res.json() as { error?: string };
-        alert(body.error ?? "Failed to claim admin access.");
-      }
-    } catch {
-      alert("Network error. Please try again.");
-    } finally {
-      setIsClaimingAdmin(false);
-    }
-  };
 
   // ── Loading / error state ──────────────────────────────────────────────────
 
@@ -442,10 +386,8 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: Settings, label: "Settings", href: "/settings" },
     { icon: Server,   label: "System",   href: "/system" },
   ];
-  const showClaimAdmin = user.role !== "admin" && adminExists === false;
   const sidebarProps = {
     user, navItems, adminItems, location, onLogout: handleLogout,
-    showClaimAdmin, onClaimAdmin: handleClaimAdmin, isClaimingAdmin,
   };
 
   return (

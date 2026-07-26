@@ -40,17 +40,14 @@ export async function requireAuth(
 
   try {
     const decoded = await getFirebaseAuth().verifyIdToken(token);
+    // Role is intentionally NOT set from the token — it is always loaded
+    // from the database by requireRole() so it can never be spoofed via
+    // custom Firebase claims.
     request.auth = {
       uid: decoded.uid,
       email: decoded.email ?? null,
       name: decoded.name ?? null,
       claims: decoded,
-      role:
-        typeof decoded.role === "string"
-          ? decoded.role
-          : decoded.admin === true
-            ? "admin"
-            : undefined,
     };
     next();
   } catch {

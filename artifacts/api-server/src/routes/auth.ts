@@ -4,9 +4,6 @@ import { getBearerToken, requireAuth } from "../auth/middleware";
 import {
   getOrCreateUserForToken,
   toPublicUser,
-  findUserByFirebaseUid,
-  updateUser,
-  getAdminCount,
 } from "../lib/user-response";
 import { authRateLimiter } from "../middleware/security";
 
@@ -36,57 +33,6 @@ router.get("/auth/me", requireAuth, async (request, response) => {
     response.json(toPublicUser(user));
   } catch {
     response.status(500).json({ error: "Unable to load application user." });
-  }
-});
-
-/**
- * GET /api/auth/admin-exists
- * Public endpoint. Returns whether at least one admin user exists in the CRM.
- * Used by the frontend to decide whether to show the "Claim Admin" option.
- */
-router.get("/auth/admin-exists", async (_request, response) => {
-  try {
-    const count = await getAdminCount();
-    response.json({ exists: count > 0 });
-  } catch {
-    response.status(500).json({ error: "Unable to check admin status." });
-  }
-});
-
-/**
- * POST /api/auth/claim-admin
- * Promotes the authenticated user to admin — only works when NO admin exists yet.
- * This is a one-time bootstrap route for the first setup.
- * Once any admin exists, this route returns 403.
- */
-router.post("/auth/claim-admin", requireAuth, async (request, response) => {
-  try {
-    const adminCount = await getAdminCount();
-    if (adminCount > 0) {
-      response.status(403).json({
-        error: "An admin already exists. Only an admin can change user roles.",
-      });
-      return;
-    }
-
-    const user = await findUserByFirebaseUid(request.auth!.uid);
-    if (!user) {
-      response.status(404).json({
-        error: "Your account is not registered in the CRM.",
-        code: "UNREGISTERED",
-      });
-      return;
-    }
-
-    const updated = await updateUser(user.id, { role: "admin" });
-    if (!updated) {
-      response.status(500).json({ error: "Unable to promote user to admin." });
-      return;
-    }
-
-    response.json(toPublicUser(updated));
-  } catch {
-    response.status(500).json({ error: "Unable to claim admin access." });
   }
 });
 

@@ -79,6 +79,18 @@ A full-stack CRM for a solar installation business (India-specific: PMSGY scheme
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
 
+## First-Admin Bootstrap
+
+There is **no public UI** for claiming admin access. If no admin exists yet in the database, use the secure CLI script:
+
+```bash
+# From the repo root — requires TURSO_DATABASE_URL and TURSO_AUTH_TOKEN to be set
+pnpm --filter @workspace/scripts run bootstrap-admin -- <firebase-uid-or-email>
+```
+
+The script refuses to run if any admin already exists, preventing escalation after setup.
+After this, all role assignments must be made by a logged-in admin through the **Users** page.
+
 ## Gotchas
 
 - `drizzle-kit push --force` may still fail if a unique index exists in the schema but not in the live DB. Fix: create the index manually with `CREATE UNIQUE INDEX IF NOT EXISTS ... ON ...`, then re-run push.

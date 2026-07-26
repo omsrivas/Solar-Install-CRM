@@ -4,7 +4,6 @@ import {
   createUser as createDbUser,
   findUserByFirebaseUid as findDbUserByFirebaseUid,
   updateUser as updateDbUser,
-  getAdminCount,
 } from "@workspace/db";
 
 export type PublicUser = {
@@ -34,7 +33,6 @@ export function toPublicUser(user: User): PublicUser {
 export const createUser = createDbUser;
 export const findUserByFirebaseUid = findDbUserByFirebaseUid;
 export const updateUser = updateDbUser;
-export { getAdminCount };
 
 /**
  * Look up the CRM user for a verified Firebase token.
