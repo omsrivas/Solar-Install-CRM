@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "bootstrap-admin": "tsx ./src/bootstrap-admin.ts",
+    "test-leads-crud": "tsx ./src/test-leads-crud.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
