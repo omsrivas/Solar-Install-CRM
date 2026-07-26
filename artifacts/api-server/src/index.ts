@@ -19,10 +19,6 @@ const REQUIRED_ENVIRONMENT_VARIABLES = [
   "TURSO_DATABASE_URL",
   "TURSO_AUTH_TOKEN",
   "FIREBASE_SERVICE_ACCOUNT_JSON",
-] as const;
-
-// R2 vars are only needed for the documents route — validated lazily there.
-const OPTIONAL_WARN_VARIABLES = [
   "R2_ACCOUNT_ID",
   "R2_ACCESS_KEY_ID",
   "R2_SECRET_ACCESS_KEY",
@@ -37,16 +33,6 @@ function validateEnvironment(): void {
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variable(s): ${missing.join(", ")}`,
-    );
-  }
-
-  const missingOptional = OPTIONAL_WARN_VARIABLES.filter(
-    (name) => !process.env[name]?.trim(),
-  );
-  if (missingOptional.length > 0) {
-    logger.warn(
-      { missing: missingOptional },
-      "Optional R2 env vars not set — document upload/download will be unavailable",
     );
   }
 

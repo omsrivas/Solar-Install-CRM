@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Offline — SunPower Solar CRM</title>
+    <meta name="theme-color" content="#F59E0B" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Plus Jakarta Sans',
+          'Segoe UI', Roboto, sans-serif;
+        background: #F8FAFC;
+        color: #0F172A;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        padding: 48px 40px;
+        text-align: center;
+        max-width: 420px;
+        width: 100%;
+      }
+
+      .icon-wrap {
+        width: 88px;
+        height: 88px;
+        background: #FEF3C7;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 28px;
+      }
+
+      .icon-wrap svg {
+        width: 52px;
+        height: 52px;
+      }
+
+      h1 {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        margin-bottom: 10px;
+      }
+
+      p {
+        font-size: 14px;
+        color: #64748B;
+        line-height: 1.7;
+        margin-bottom: 28px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #F59E0B;
+        color: #fff;
+        border: none;
+        padding: 13px 28px;
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.18s, transform 0.1s;
+        text-decoration: none;
+      }
+      .btn:hover  { background: #D97706; }
+      .btn:active { transform: scale(0.97); }
+
+      .divider {
+        border: none;
+        border-top: 1px solid #F1F5F9;
+        margin: 28px 0;
+      }
+
+      .hint {
+        font-size: 12px;
+        color: #94A3B8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .hint svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+      }
+
+      .footer {
+        margin-top: 32px;
+        font-size: 12px;
+        color: #CBD5E1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .footer svg { width: 16px; height: 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <!-- Sun icon -->
+      <div class="icon-wrap">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="10" fill="#F59E0B"/>
+          <!-- Rays -->
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(45 24 24)"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(90 24 24)"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(135 24 24)"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(180 24 24)"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(225 24 24)"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(270 24 24)"/>
+          <rect x="22" y="3" width="4" height="8" rx="2" fill="#FCD34D" transform="rotate(315 24 24)"/>
+          <!-- Cloud / no-wifi indicator -->
+          <circle cx="34" cy="36" r="7" fill="#EF4444" opacity="0.15"/>
+          <path d="M31 36h6M34 33v6" stroke="#EF4444" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+
+      <h1>You're offline</h1>
+      <p>
+        SunPower Solar CRM needs an internet connection.<br/>
+        Check your Wi-Fi or mobile data, then try again.
+      </p>
+
+      <button class="btn" onclick="window.location.reload()">
+        <!-- Refresh icon -->
+        <svg viewBox="0 0 20 20" fill="currentColor" style="width:16px;height:16px;">
+          <path fill-rule="evenodd"
+            d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+            clip-rule="evenodd"/>
+        </svg>
+        Try again
+      </button>
+
+      <hr class="divider"/>
+
+      <p class="hint">
+        <svg viewBox="0 0 20 20" fill="#94A3B8" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+            clip-rule="evenodd"/>
+        </svg>
+        Previously loaded pages may still be available.
+      </p>
+    </div>
+
+    <div class="footer">
+      <svg viewBox="0 0 24 24" fill="#F59E0B" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="5"/>
+        <line x1="12" y1="1" x2="12" y2="3" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="12" y1="21" x2="12" y2="23" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="1" y1="12" x2="3" y2="12" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="21" y1="12" x2="23" y2="12" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      SunPower Solar CRM
+    </div>
+  </body>
+</html>
