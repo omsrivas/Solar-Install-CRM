@@ -30,6 +30,9 @@ async function buildAll() {
     external: [
       "*.node",
       "sharp",
+      "@libsql/client",
+      "@libsql/linux-x64-gnu",
+      "libsql",
       "better-sqlite3",
       "sqlite3",
       "canvas",
@@ -46,7 +49,6 @@ async function buildAll() {
       "dtrace-provider",
       "isolated-vm",
       "lightningcss",
-      "pg-native",
       "oracledb",
       "mongodb-client-encryption",
       "nodemailer",
