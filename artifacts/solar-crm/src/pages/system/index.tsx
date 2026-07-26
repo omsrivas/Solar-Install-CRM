@@ -132,7 +132,7 @@ export function System() {
     createBackup.mutate(undefined, {
       onSuccess: () => {
         toast({ title: "Snapshot created successfully" });
-        queryClient.invalidateQueries({ queryKey: ["/api/system/backups"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/backup/list"] });
       },
       onError: () => {
         toast({ title: "Failed to create snapshot", variant: "destructive" });
@@ -142,10 +142,15 @@ export function System() {
 
   if (healthLoading) return <SystemSkeleton />;
 
-  const isHealthy = health?.status === "healthy";
-  const dbMs = health?.database.responseMs ?? 0;
-  const heapUsed = health?.memory.heapUsedMb ?? 0;
-  const heapTotal = health?.memory.heapTotalMb ?? 1;
+  // The backend returns a slightly different shape than the generated TypeScript
+  // types (e.g. "ok"/"degraded" status, responseTime not responseMs, OS memory
+  // bytes not Node heap MB).  Cast once here so the rest of the JSX stays readable.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = health as any;
+  const isHealthy = raw?.status === "ok";
+  const dbMs = raw?.database?.responseTime ?? 0;
+  const heapUsed = (raw?.memory?.used ?? 0) / (1024 * 1024);
+  const heapTotal = (raw?.memory?.total ?? 1) / (1024 * 1024);
   const heapPct = Math.round((heapUsed / heapTotal) * 100);
 
   const dbBarColor =
@@ -199,11 +204,11 @@ export function System() {
             value={
               <span
                 className={`flex items-center gap-1.5 text-xs font-semibold ${
-                  health?.database.connected ? "text-emerald-600" : "text-red-600"
+                  raw?.database?.status === "ok" ? "text-emerald-600" : "text-red-600"
                 }`}
               >
-                <StatusDot ok={!!health?.database.connected} />
-                {health?.database.connected ? "Connected" : "Disconnected"}
+                <StatusDot ok={raw?.database?.status === "ok"} />
+                {raw?.database?.status === "ok" ? "Connected" : "Disconnected"}
               </span>
             }
           />
@@ -244,11 +249,11 @@ export function System() {
             }}
           />
           <MetricRow
-            label="RSS"
+            label="OS used"
             value={
               <span className="font-mono text-xs">
-                {Math.round(health?.memory.rssMb ?? 0)}
-                <span className="text-gray-400 font-sans"> MB</span>
+                {raw?.memory?.percentage ?? 0}
+                <span className="text-gray-400 font-sans"> %</span>
               </span>
             }
           />
