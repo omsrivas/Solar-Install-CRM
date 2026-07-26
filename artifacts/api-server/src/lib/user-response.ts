@@ -3,6 +3,8 @@ import type { User, UserRole } from "@workspace/db";
 import {
   createUser as createDbUser,
   findUserByFirebaseUid as findDbUserByFirebaseUid,
+  updateUser as updateDbUser,
+  getAdminCount,
 } from "@workspace/db";
 
 export type PublicUser = {
@@ -31,31 +33,20 @@ export function toPublicUser(user: User): PublicUser {
 
 export const createUser = createDbUser;
 export const findUserByFirebaseUid = findDbUserByFirebaseUid;
+export const updateUser = updateDbUser;
+export { getAdminCount };
 
-function roleFromClaims(claims: DecodedIdToken): UserRole {
-  const claimRole = claims.role;
-  if (
-    claimRole === "admin" ||
-    claimRole === "sales" ||
-    claimRole === "finance" ||
-    claimRole === "warehouse" ||
-    claimRole === "engineer"
-  ) {
-    return claimRole;
-  }
-  return claims.admin === true ? "admin" : "sales";
-}
-
+/**
+ * Look up the CRM user for a verified Firebase token.
+ * Returns null if the Firebase account has no corresponding CRM user record —
+ * the caller must decide how to handle unregistered accounts (e.g. 403).
+ *
+ * Auto-creation has been removed intentionally: all CRM users must be
+ * created explicitly by an admin via the Users page so they get the
+ * correct role from the start.
+ */
 export async function getOrCreateUserForToken(
   decoded: DecodedIdToken,
-): Promise<User> {
-  const existing = await findDbUserByFirebaseUid(decoded.uid);
-  if (existing) return existing;
-
-  return createDbUser({
-    firebaseUid: decoded.uid,
-    name: decoded.name ?? decoded.email ?? decoded.uid,
-    email: decoded.email ?? `${decoded.uid}@firebase.local`,
-    role: roleFromClaims(decoded),
-  });
+): Promise<User | null> {
+  return findDbUserByFirebaseUid(decoded.uid);
 }

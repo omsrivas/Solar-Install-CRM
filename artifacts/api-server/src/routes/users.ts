@@ -147,6 +147,20 @@ router.patch("/users/:id", ...adminOnly, async (request, response) => {
       response.status(404).json({ error: "User not found." });
       return;
     }
+
+    // Update Firebase password if provided
+    if (typeof body.password === "string" && body.password.length >= 8) {
+      try {
+        await getFirebaseAuth().updateUser(existing.firebaseUid, {
+          password: body.password,
+        });
+      } catch {
+        // Password update failed — return the DB update but warn
+        response.json({ ...toPublicUser(updated), _warning: "Profile updated but password change failed." });
+        return;
+      }
+    }
+
     response.json(toPublicUser(updated));
   } catch {
     response.status(409).json({ error: "Unable to update user; email may already be in use." });

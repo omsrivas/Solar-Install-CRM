@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import {
   LayoutDashboard,
@@ -20,7 +21,9 @@ import {
   X as XIcon,
   AlertTriangle,
   RefreshCw,
+  Shield,
 } from "lucide-react";
+import { getAuthToken } from "@/lib/tokenStore";
 
 type Role = "admin" | "sales" | "finance" | "warehouse" | "engineer";
 
@@ -143,6 +146,9 @@ function SidebarBody({
   location,
   onClose,
   onLogout,
+  showClaimAdmin,
+  onClaimAdmin,
+  isClaimingAdmin,
 }: {
   user: { name?: string | null; role?: string | null };
   navItems: Array<{ icon: React.ElementType; label: string; href: string }>;
@@ -150,6 +156,9 @@ function SidebarBody({
   location: string;
   onClose?: () => void;
   onLogout: () => void;
+  showClaimAdmin?: boolean;
+  onClaimAdmin?: () => void;
+  isClaimingAdmin?: boolean;
 }) {
   const role = (user.role ?? "admin") as Role;
   const initial = (user.name ?? "?").charAt(0).toUpperCase();
@@ -191,6 +200,23 @@ function SidebarBody({
             {adminItems.map((item) => (
               <NavLink key={item.href} item={item} location={location} />
             ))}
+          </div>
+        )}
+
+        {showClaimAdmin && (
+          <div className="mt-5 px-2">
+            <NavSectionLabel>Setup</NavSectionLabel>
+            <button
+              type="button"
+              onClick={onClaimAdmin}
+              disabled={isClaimingAdmin}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-amber-300 transition-colors hover:bg-sidebar-accent/50 hover:text-amber-200 disabled:opacity-60"
+            >
+              <Shield className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">
+                {isClaimingAdmin ? "Claiming…" : "Claim Admin Access"}
+              </span>
+            </button>
           </div>
         )}
       </div>
@@ -241,8 +267,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const { data: user, error, refetch, isFetching } = useGetMe({
     query: { retry: false, queryKey: getGetMeQueryKey() },
   });
+  const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileLoadTimedOut, setProfileLoadTimedOut] = useState(false);
+  const [adminExists, setAdminExists] = useState<boolean | null>(null);
+  const [isClaimingAdmin, setIsClaimingAdmin] = useState(false);
 
   useEffect(() => { setSidebarOpen(false); }, [location]);
 
@@ -254,7 +283,11 @@ export function Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!error) return;
-    const status = (error as { status?: number } | null)?.status;
+    const err = error as { status?: number; payload?: { code?: string } } | null;
+    const status = err?.status;
+    // UNREGISTERED = Firebase account exists but no CRM user record.
+    // Show the unregistered screen instead of forcing a logout.
+    if (status === 403 && err?.payload?.code === "UNREGISTERED") return;
     if (status === 401 || status === 403) {
       signOut().catch(() => {});
       setLocation("/login");
@@ -269,10 +302,69 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [user, location, setLocation]);
 
+  // Check if any admin exists — used to show/hide the Claim Admin button
+  // for non-admin users during initial setup.
+  useEffect(() => {
+    if (!user || user.role === "admin") return;
+    fetch("/api/auth/admin-exists")
+      .then((r) => r.json())
+      .then((data: { exists: boolean }) => setAdminExists(data.exists))
+      .catch(() => setAdminExists(true)); // fail-safe: assume admin exists
+  }, [user]);
+
+  const handleClaimAdmin = async () => {
+    setIsClaimingAdmin(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch("/api/auth/claim-admin", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        // Reload the user profile — role is now admin
+        await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      } else {
+        const body = await res.json() as { error?: string };
+        alert(body.error ?? "Failed to claim admin access.");
+      }
+    } catch {
+      alert("Network error. Please try again.");
+    } finally {
+      setIsClaimingAdmin(false);
+    }
+  };
+
   // ── Loading / error state ──────────────────────────────────────────────────
 
   if (!user) {
-    const status = (error as { status?: number } | null)?.status;
+    const err = error as { status?: number; payload?: { code?: string } } | null;
+    const status = err?.status;
+
+    // Firebase account exists but has no CRM user record — show a clear
+    // "not registered" message instead of silently logging out.
+    if (status === 403 && err?.payload?.code === "UNREGISTERED") {
+      return (
+        <div className="flex min-h-dvh w-full items-center justify-center bg-background p-6">
+          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm text-center">
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-violet-100">
+              <Shield className="h-5 w-5 text-violet-600" />
+            </div>
+            <h1 className="text-base font-semibold text-foreground">Account not registered</h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Your Firebase account exists but hasn't been added to the CRM yet. Ask an admin to create your account from the Users page.
+            </p>
+            <button
+              type="button"
+              onClick={() => void signOut().finally(() => setLocation("/login"))}
+              className="mt-5 inline-flex items-center justify-center h-9 w-full rounded-lg border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     const failed =
       profileLoadTimedOut ||
       Boolean(error && status !== 401 && status !== 403);
@@ -350,7 +442,11 @@ export function Layout({ children }: { children: ReactNode }) {
     { icon: Settings, label: "Settings", href: "/settings" },
     { icon: Server,   label: "System",   href: "/system" },
   ];
-  const sidebarProps = { user, navItems, adminItems, location, onLogout: handleLogout };
+  const showClaimAdmin = user.role !== "admin" && adminExists === false;
+  const sidebarProps = {
+    user, navItems, adminItems, location, onLogout: handleLogout,
+    showClaimAdmin, onClaimAdmin: handleClaimAdmin, isClaimingAdmin,
+  };
 
   return (
     <div className="flex h-dvh w-full bg-background">

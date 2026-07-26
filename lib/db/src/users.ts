@@ -1,4 +1,4 @@
-import { and, eq, like, or } from "drizzle-orm";
+import { and, eq, like, or, sql } from "drizzle-orm";
 import { db } from "./index";
 import {
   userRoles,
@@ -90,6 +90,14 @@ export async function listUsers(
     .from(users)
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(users.name);
+}
+
+export async function getAdminCount(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(users)
+    .where(eq(users.role, "admin"));
+  return Number(row?.count ?? 0);
 }
 
 export { userRoles };
